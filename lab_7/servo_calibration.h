@@ -1,0 +1,60 @@
+#ifndef SERVO_CALIBRATION_H
+#define SERVO_CALIBRATION_H
+
+
+//cybot 5
+#define SERVO_RIGHT_VAL 301000
+#define SERVO_LEFT_VAL 1256500
+
+//cybot 7
+//#define SERVO_RIGHT_VAL 280000
+//#define SERVO_LEFT_VAL 1261750
+
+//cybot 8
+//#define SERVO_RIGHT_VAL 280000
+//#define SERVO_LEFT_VAL 1256500
+
+//cybot 10
+//#define SERVO_RIGHT_VAL 285250
+//#define SERVO_LEFT_VAL 1293250
+
+//cybot 11
+//#define SERVO_RIGHT_VAL 295750
+//#define SERVO_LEFT_VAL 1293250
+
+//cybot 13
+//#define SERVO_RIGHT_VAL 285250
+//#define SERVO_LEFT_VAL 1198750
+
+//cybot 16
+//#define SERVO_RIGHT_VAL 238000
+//#define SERVO_LEFT_VAL 1183000
+
+//cybot 18
+//#define SERVO_RIGHT_VAL 248500
+//#define SERVO_LEFT_VAL 1214500
+
+//cybot 20
+//#define SERVO_RIGHT_VAL 253705
+//#define SERVO_LEFT_VAL 1230250
+
+//cybot 21
+//#define SERVO_RIGHT_VAL 311500
+//#define SERVO_LEFT_VAL 1319500
+
+//cybot 24
+//#define SERVO_RIGHT_VAL 264250
+//#define SERVO_LEFT_VAL 1225000
+
+//cybot 26
+//#define SERVO_RIGHT_VAL 306250
+//#define SERVO_LEFT_VAL 1319500
+
+//cybot 28
+//#define SERVO_RIGHT_VAL 243250
+//#define SERVO_LEFT_VAL 1162000
+
+//cybot 30
+//#define SERVO_RIGHT_VAL 343000
+//#define SERVO_LEFT_VAL 1365250
+#endif
