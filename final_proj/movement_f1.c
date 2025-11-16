@@ -4,19 +4,37 @@
 #include "lcd.h"
 #include <stdio.h>
 
-double move_forward(oi_t *sensor_data, int cm) {
+int move_forward(oi_t *sensor_data, int cm)
+{
     double distanceTraveled = 0;
     oi_setWheels(200, 200);
 
-    while (distanceTraveled < cm * MM_IN_CM) {
+    while (distanceTraveled < cm * MM_IN_CM)
+    {
         oi_update(sensor_data);
 
-        if (sensor_data->bumpLeft || sensor_data->bumpRight) {
+        if (sensor_data->bumpLeft || sensor_data->bumpRight)
+        {
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
-            return distanceTraveled;
+            return BUMP;
         }
-        else {
+        if (sensor_data->cliffFrontLeftSignal > 2500
+                || sensor_data->cliffFrontRightSignal > 2500)
+        {
+            oi_setWheels(0, 0);
+            distanceTraveled += sensor_data->distance;
+            return BOUNDARY;
+        }
+        if (sensor_data->cliffFrontLeftSignal < 50
+                || sensor_data->cliffFrontRightSignal < 50)
+        {
+            oi_setWheels(0, 0);
+            distanceTraveled += sensor_data->distance;
+            return CLIFF;
+        }
+        else
+        {
 
         }
 
@@ -31,6 +49,18 @@ double move_forward(oi_t *sensor_data, int cm) {
 #endif
 
     return distanceTraveled;
+}
+
+double move_to_bounds(oi_t *sensor_data){
+    double dist =0;
+    oi_setWheels(200, 200);
+    while(sensor_data->cliffFrontLeftSignal < 2500 || sensor_data->cliffFrontRightSignal < 2500){
+
+        oi_setWheels(0, 0);
+        return dist;
+    }
+    dist += sensor_data->distance;
+
 }
 
 double move_backward(oi_t *sensor_data, int cm) {
@@ -53,20 +83,20 @@ double move_backward(oi_t *sensor_data, int cm) {
 }
 
 
-void avoid_obstacle(oi_t *sensor_data, int bump_status) {
-
-    if (bump_status == LEFT_BUMPED) {
-        move_backward(sensor_data, 4);
-        turn_clockwise(sensor_data, 75);
-        move_forward(sensor_data, 33);
-        turn_counterclockwise(sensor_data, 120);
-    } else if (bump_status == RIGHT_BUMPED) {
-        move_backward(sensor_data, 4);
-        turn_counterclockwise(sensor_data, 75);
-        move_forward(sensor_data, 33);
-        turn_clockwise(sensor_data, 120);
-    }
-}
+//void avoid_obstacle(oi_t *sensor_data, int bump_status) {
+//
+//    if (bump_status == LEFT_BUMPED) {
+//        move_backward(sensor_data, 4);
+//        turn_clockwise(sensor_data, 75);
+//        move_forward(sensor_data, 33);
+//        turn_counterclockwise(sensor_data, 120);
+//    } else if (bump_status == RIGHT_BUMPED) {
+//        move_backward(sensor_data, 4);
+//        turn_counterclockwise(sensor_data, 75);
+//        move_forward(sensor_data, 33);
+//        turn_clockwise(sensor_data, 120);
+//    }
+//}
 
 
 void turn_clockwise(oi_t *sensor_data, int degrees) {

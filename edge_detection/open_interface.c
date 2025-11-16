@@ -285,7 +285,7 @@ void oi_parsePacket(oi_t *self, uint8_t packet[])
 
     self->stasis = packet[79];
 
-    self->distance = oi_getDistance(self);
+    self->distance = oi_getDistance(self);__
     self->angle = oi_getDegrees(self);
 }
 
