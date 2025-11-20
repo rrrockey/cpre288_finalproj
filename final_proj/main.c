@@ -21,10 +21,17 @@ typedef struct {
     double ping_distance;
     double width;
 } object_t;
+typedef struct {
+    int averagePing;
+    double averageAdc;
 
+} scan_info;
 
+void avoidObject(oi_t *sensor_data);
+scan_info scan_cone(int low, int high);
 int main(void)
 {
+
     timer_init();
     lcd_init();
     uart_init();
@@ -35,7 +42,9 @@ int main(void)
 
     oi_t *sensor_data = oi_alloc();
     oi_init(sensor_data);
-    //servo_calibrate();
+
+    char buffer[200];
+    scan_info scanData;//servo_calibrate();
     int stop = 0;
     int turnStatus = 0;
     double horizontalSpan =0;
@@ -50,14 +59,21 @@ int main(void)
     while (!stop)
     {
         oi_update(sensor_data);
-        int pingVal = (((ping_read()/2)*.5)*34000)/16000000;
-        int IR_val = adc_read();
-         estimation = 0.0000228813 * (IR_val * IR_val) - 0.0981288 * IR_val + 115.33455;
-        lcd_printf("%d, %.2f, %d, %d", pingVal, estimation, sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
+//        int pingVal = (((ping_read()/2)*.5)*34000)/16000000;
+//        int IR_val = adc_read();
+        scanData = scan_cone(60,120);
+//         estimation = 0.0000228813 * (IR_val * IR_val) - 0.0981288 * IR_val + 115.33455;
+        lcd_printf("%d, %.2f, %d, %d", scanData.averagePing, scanData.averageAdc, sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
         servo_move(90);
-        int status = move_scan(sensor_data, fmin(200, pingVal-10), 60, 120);
+        int driveDist = fmin(200, scanData.averagePing);
+        int status = move_scan(sensor_data, driveDist, 60, 120);
+        if(OBJECT == status){
 
-        if(pingVal < 10){
+            scanData = scan_cone(60,120);
+        }
+        sprintf(buffer, "scan data ADC %d, PING  %.2f \r\n", scanData.averageAdc, scanData.averagePing);
+                            uart_sendStr(buffer);
+        if(scanData.averagePing < 10){
             avoidObject(sensor_data);
 
         }
@@ -121,26 +137,30 @@ int main(void)
 
 void avoidObject(oi_t *sensor_data)
 {
+    scan_info scanData;
+    char buffer[200];
     turn_counterclockwise(sensor_data, 90);
-    double adcValue = scan_cone(45, 135);
+    double adcValue = 0;
+    scanData = scan_cone(45, 135);
 
-
-    if (adcValue < 10)
+    sprintf(buffer, "adcValue in recursion: %.2f", scanData.averageAdc);
+    uart_sendStr(buffer);
+    if (scanData.averageAdc < 25)
     {
         avoidObject(sensor_data);
     }
     move_forward(sensor_data, 35);
     turn_clockwise(sensor_data, 90);
 
-    adcValue = scan_cone(45, 135);
-    if (adcValue < 10)
+    scanData = scan_cone(45, 135);
+    if (scanData.averageAdc < 25)
     {
         avoidObject(sensor_data);
     }
     move_forward(sensor_data, 35 /*possibly, add the size of the pillar*/);
     turn_clockwise(sensor_data, 90);
-    adcValue = scan_cone(45, 135);
-    if (adcValue < 10)
+    scanData = scan_cone(45, 135);
+    if (scanData.averageAdc < 25)
     {
         avoidObject(sensor_data);
     }
@@ -151,37 +171,65 @@ void avoidObject(oi_t *sensor_data)
 
 }
 
-double scan_cone(int low, int high){
-    int objectTickAmnt = 0;
-    double averageValue = 0;
+scan_info scan_cone(int low, int high){
+    scan_info scanData = {0,0};
+    int adcTickAmnt = 0;
+    int pingTickAmnt = 0;
+    double averageADC = 0;
+    int averagePing = 0;
+
     double estimation = 0;
+    int pingVal = 0;
     int adcVal = 0;
     int i =low;
-
+    char buffer[200] = "";
     for(i =low; i<high; i++){
         servo_move(i);
         adcVal = adc_read();
 //        estimation = 0.0000228813 * (adcVal * adcVal) - 0.0981288 * adcVal + 115.33455;
         estimation = 4150000 * pow(adcVal, -1.64);
         if(estimation < 25){
-            lcd_printf("object hit");
-            objectTickAmnt++;
-            averageValue += estimation;
+            sprintf(buffer, "Object hit at: %.2f, at angle %d \r\n", estimation,i);
+                    uart_sendStr(buffer);
+            adcTickAmnt++;
+            averageADC += estimation;
+
         }
 
+        pingVal = (((ping_read()/2)*.5)*34000)/16000000;
+        if(pingVal < 25){
+            pingTickAmnt++;
+            averagePing+= pingVal;
+        }
+
+        sprintf(buffer, "angle: %d scan: %.2f, average: %.2f, object count: %d \r\n",i,  estimation, averageADC / ((double)adcTickAmnt), adcTickAmnt);
+        uart_sendStr(buffer);
+
 
 
     }
-    if(objectTickAmnt ==0){
-        return 100;
+
+    if(adcTickAmnt == 0 || pingTickAmnt == 0){
+        sprintf(buffer, "No objects found!");
+                uart_sendStr(buffer);
+        scanData.averageAdc = 100;
+        scanData.averagePing = 100;
+        return scanData;
     }
-    averageValue= averageValue / ((double)(objectTickAmnt));
-    lcd_printf("%.2f, %d", averageValue, objectTickAmnt);
-    if(objectTickAmnt > 0){
-        return averageValue;
+    averageADC = averageADC / ((double)(adcTickAmnt));
+    averagePing = averagePing/pingTickAmnt;
+    sprintf(buffer, "Final output:  average: %.2f, object count: %d \r\n", averageADC, adcTickAmnt);
+            uart_sendStr(buffer);
+    lcd_printf("%.2f, %d", averageADC, adcTickAmnt);
+    scanData.averageAdc = averageADC;
+    scanData.averagePing = averagePing;
+    if(adcTickAmnt > 0){
+        return scanData;
     }
     else{
-        return 100;
+        scanData.averageAdc = 100;
+                scanData.averagePing = 100;
+                return scanData;
     }
 
 }

@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include "servo.h"
 #include "adc.h"
+
+
 int move_forward(oi_t *sensor_data, int cm)
 {
     double distanceTraveled = 0;
