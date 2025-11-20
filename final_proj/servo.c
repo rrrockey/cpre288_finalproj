@@ -51,7 +51,7 @@ void servo_move(float angle) {
 
     uint32_t pulse_width = SERVO_0DEG_PULSE + (uint32_t)((angle / 180.0) * SERVO_RANGE);
     uint32_t match = PERIOD_TICKS - pulse_width;
-
+    timer_waitMillis(20);
     TIMER1_TBMATCHR_R = match & 0xFFFF;
     TIMER1_TBPMR_R = (match >> 16) & 0xFF;
 }

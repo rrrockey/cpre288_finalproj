@@ -40,15 +40,22 @@ int main(void)
     int turnStatus = 0;
     double horizontalSpan =0;
     double verticalSpan = 0;
+    double estimation = 0;
+    while(1){
+        int button = button_getButton();
+        if(button == 1){
+
 
 
     while (!stop)
     {
         oi_update(sensor_data);
         int pingVal = (((ping_read()/2)*.5)*34000)/16000000;
-        lcd_printf("%d, %d, %d", pingVal, sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
+        int IR_val = adc_read();
+         estimation = 0.0000228813 * (IR_val * IR_val) - 0.0981288 * IR_val + 115.33455;
+        lcd_printf("%d, %.2f, %d, %d", pingVal, estimation, sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
         servo_move(90);
-        int status = move_forward(sensor_data, fmin(200, pingVal-10));
+        int status = move_scan(sensor_data, fmin(200, pingVal-10), 60, 120);
 
         if(pingVal < 10){
             avoidObject(sensor_data);
@@ -106,7 +113,7 @@ int main(void)
 //
 //    }
     //lcd_printf("%.2f, %.2f", horizontalSpan, verticalSpan);
-
+        }}
     oi_free(sensor_data);
 
     return 0;
@@ -115,25 +122,25 @@ int main(void)
 void avoidObject(oi_t *sensor_data)
 {
     turn_counterclockwise(sensor_data, 90);
-    int pingVal = (((ping_read() / 2) * .5) * 34000) / 16000000;
+    double adcValue = scan_cone(45, 135);
 
 
-    if (pingVal < 10)
+    if (adcValue < 10)
     {
         avoidObject(sensor_data);
     }
     move_forward(sensor_data, 35);
     turn_clockwise(sensor_data, 90);
 
-    pingVal = (((ping_read() / 2) * .5) * 34000) / 16000000;
-    if (pingVal < 10)
+    adcValue = scan_cone(45, 135);
+    if (adcValue < 10)
     {
         avoidObject(sensor_data);
     }
     move_forward(sensor_data, 35 /*possibly, add the size of the pillar*/);
     turn_clockwise(sensor_data, 90);
-    pingVal = (((ping_read() / 2) * .5) * 34000) / 16000000;
-    if (pingVal < 10)
+    adcValue = scan_cone(45, 135);
+    if (adcValue < 10)
     {
         avoidObject(sensor_data);
     }
@@ -144,3 +151,37 @@ void avoidObject(oi_t *sensor_data)
 
 }
 
+double scan_cone(int low, int high){
+    int objectTickAmnt = 0;
+    double averageValue = 0;
+    double estimation = 0;
+    int adcVal = 0;
+    int i =low;
+
+    for(i =low; i<high; i++){
+        servo_move(i);
+        adcVal = adc_read();
+//        estimation = 0.0000228813 * (adcVal * adcVal) - 0.0981288 * adcVal + 115.33455;
+        estimation = 4150000 * pow(adcVal, -1.64);
+        if(estimation < 25){
+            lcd_printf("object hit");
+            objectTickAmnt++;
+            averageValue += estimation;
+        }
+
+
+
+    }
+    if(objectTickAmnt ==0){
+        return 100;
+    }
+    averageValue= averageValue / ((double)(objectTickAmnt));
+    lcd_printf("%.2f, %d", averageValue, objectTickAmnt);
+    if(objectTickAmnt > 0){
+        return averageValue;
+    }
+    else{
+        return 100;
+    }
+
+}
