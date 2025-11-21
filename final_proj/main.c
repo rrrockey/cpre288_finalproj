@@ -108,6 +108,7 @@ void avoidObject(oi_t *sensor_data)
     int facing = POSITIVE_Y;
 
     while(!objects_passed) {
+        oi_update(sensor_data);
         scan_info distance_to_object = scan_cone(60, 120);
         lcd_printf("average distance: %.2f", distance_to_object.averageAdc);
         if (distance_to_object.averageAdc < 25) { // if close object in front of bot (facing positive y)
@@ -115,14 +116,17 @@ void avoidObject(oi_t *sensor_data)
             facing = NEGATIVE_X;
             int found_object_to_left = 1; // assume object to the left
             while (found_object_to_left) { //facing -x
+                oi_update(sensor_data);
 //                turn_counterclockwise(sensor_data, 90);
 //                facing = NEGATIVE_X; // turn back to the left   facing -x
                 distance_to_object = scan_cone(60, 120);
                 lcd_printf("average distance: %.2f", distance_to_object.averagePing);
                 if (distance_to_object.averagePing > 50) { // clear path to move
                     found_object_to_left = 0;
+                    oi_update(sensor_data);
                     double distance_before = sensor_data->distance*10; //call
                     move_forward(sensor_data, 50);
+                    oi_update(sensor_data);
                     double distance_moved = sensor_data->distance*10 - distance_before;
                     lcd_printf("traveled %.2f cm", (distance_moved));
                     timer_waitMillis(1000);
@@ -133,8 +137,10 @@ void avoidObject(oi_t *sensor_data)
                 else { // object   facing -x
                     turn_counterclockwise(sensor_data, 90);
                     facing = NEGATIVE_Y;
+                    oi_update(sensor_data);
                     double distance_before = sensor_data->distance*10; //call
                     move_forward(sensor_data, 35+ 6);
+                    oi_update(sensor_data);
                     double distance_moved = sensor_data->distance*10 - distance_before;
                     distance_traveled_y -= distance_moved; //subtract bc moving on -y direction
                     turn_clockwise(sensor_data, 90);
@@ -177,78 +183,55 @@ int main(void)
     double horizontalSpan =0;
     double verticalSpan = 0;
     double estimation = 0;
+    double distance_traveled = 0;
+    char buffer[100];
+
     while(1){
         int button = button_getButton();
         if(button == 1){
 
-
-
-    while (!stop)
-    {
-        oi_update(sensor_data);
-        int pingVal = (((ping_read()/2)*.5)*34000)/16000000;
-        int IR_val = adc_read();
-         estimation = 0.0000228813 * (IR_val * IR_val) - 0.0981288 * IR_val + 115.33455;
-        lcd_printf("%d, %.2f, %d, %d", pingVal, estimation, sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
-        servo_move(90);
-        int status = move_scan(sensor_data, fmin(200, pingVal-10), 60, 120);
-
-        if(pingVal < 10){
-            avoidObject(sensor_data);
-
-        }
-        if (status == BOUNDARY)
+        while (!stop)
         {
+            sprintf(buffer, "distance movead: %.2f\r\n", distance_traveled);
+            uart_sendStr(buffer);
+            oi_update(sensor_data);
+            int pingVal = (((ping_read()/2)*.5)*34000)/16000000;
+            int IR_val = adc_read();
+            estimation = 0.0000228813 * (IR_val * IR_val) - 0.0981288 * IR_val + 115.33455;
+            lcd_printf("%d, %.2f, %d, %d", pingVal, estimation, sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
+            servo_move(90);
+            int status = move_scan(sensor_data, fmin(200, pingVal-10), 60, 120, &distance_traveled);
+
+            if (status == BOUNDARY)
+            {
+                if (!turnStatus)
+                {
+                    turnStatus = 1;
+                    turn_counterclockwise(sensor_data, 90);
+                    sensor_data->distance = 0;
+                }
+                else
+                {
+                    turn_counterclockwise(sensor_data, 180);
+                    stop = 1;
+                }
+            }
+            else if (status == CLIFF)
+            {
+                stop = 1;
+            }
+            else if (status == OBJECT) {
+                avoidObject(sensor_data);
+            }
             if (!turnStatus)
             {
-                turnStatus = 1;
-                turn_counterclockwise(sensor_data, 90);
-                sensor_data->distance = 0;
+                horizontalSpan += sensor_data->distance;
             }
             else
             {
-                turn_counterclockwise(sensor_data, 180);
-                stop = 1;
+                verticalSpan += sensor_data->distance;
             }
         }
-        else if (status == CLIFF)
-        {
-            stop = 1;
-        }
-        if (!turnStatus)
-        {
-            horizontalSpan += sensor_data->distance;
-        }
-        else
-        {
-            verticalSpan += sensor_data->distance;
-        }
-    }
-//    int RightOrLeft = 0; // 0 is right, 1 is left
-//
-//   // int adcVal =0;
-//    object_t[10] objects;
-//    while(1){
-//        if(RightOrLeft){
-//            for(int i = 0 + 60*RightOrLeft; i<120 +60*RightOrLeft; i++){
-//               // adcVal = adc_read();
-//                ticks = ping_getPulseWidth();
-//                time_ms = ping_getTimeMs(ticks);
-//                pingVal = ping_getDistanceCm(time_ms);
-//                //double  estimation = 0.0000228813 * (adcValue * adcValue) - 0.0981288 * adcValue + 115.33455;
-//
-//            }
-//        }
-//
-//        //scan area
-//
-//        //drive short distance in y
-//
-//        //move 35 cm downwards in x
-//
-//
-//    }
-    //lcd_printf("%.2f, %.2f", horizontalSpan, verticalSpan);
 
         }
     }
@@ -256,7 +239,6 @@ int main(void)
 
     return 0;
 }
-
 
 
 

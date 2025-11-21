@@ -23,4 +23,5 @@ void avoid_obstacle(oi_t *sensor_data, int bump_status);
 void calibrate_forward_movement(oi_t *sensor_data);
 
 void calibrate_turning(oi_t *sensor_data);
-int move_scan(oi_t *sensor_data, int cm, float low_angle, float high_angle);
+
+int move_scan(oi_t *sensor_data, int cm, float low_angle, float high_angle, double *distance_traveled);

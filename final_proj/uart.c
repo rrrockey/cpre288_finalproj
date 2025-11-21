@@ -79,8 +79,6 @@ void gpiob_handler(void){
 
    }
 
-
-
 }
 
 

@@ -53,35 +53,39 @@ int move_forward(oi_t *sensor_data, int cm)
 }
 
 
-int move_scan(oi_t *sensor_data, int cm, float low_angle, float high_angle)
+int move_scan(oi_t *sensor_data, int cm, float low_angle, float high_angle, double *distance_traveled)
 {
     double distanceTraveled = 0;
     oi_setWheels(200, 200);
     float current_angle = low_angle;
     int IR_val = 0;
     double estimation = 0;
+    char buffer[100];
+
     while (distanceTraveled < cm * MM_IN_CM)
     {
         oi_update(sensor_data);
+        sprintf(buffer, "distance movead: %.2f\r\n", *distance_traveled);
+        uart_sendStr(buffer);
 
         if (sensor_data->bumpLeft || sensor_data->bumpRight)
         {
             oi_setWheels(0, 0);
-            distanceTraveled += sensor_data->distance;
+            *distance_traveled += sensor_data->distance;
             return BUMP;
         }
         if (sensor_data->cliffFrontLeftSignal > 2500
                 || sensor_data->cliffFrontRightSignal > 2500)
         {
             oi_setWheels(0, 0);
-            distanceTraveled += sensor_data->distance;
+            *distance_traveled += sensor_data->distance;
             return BOUNDARY;
         }
         if (sensor_data->cliffFrontLeftSignal < 50
                 || sensor_data->cliffFrontRightSignal < 50)
         {
             oi_setWheels(0, 0);
-            distanceTraveled += sensor_data->distance;
+            *distance_traveled += sensor_data->distance;
             return CLIFF;
         }
         else
@@ -95,10 +99,10 @@ int move_scan(oi_t *sensor_data, int cm, float low_angle, float high_angle)
         estimation = 0.0000228813 * (IR_val * IR_val) - 0.0981288 * IR_val + 115.33455;
         if(estimation < 25){
             oi_setWheels(0, 0);
-            distanceTraveled += sensor_data->distance;
+            *distance_traveled += sensor_data->distance;
             return OBJECT;
         }
-        distanceTraveled += sensor_data->distance;
+        *distance_traveled += sensor_data->distance;
 
     }
 
