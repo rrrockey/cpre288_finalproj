@@ -58,7 +58,7 @@ int move_forward(oi_t *sensor_data, int cm)
 int move_scan(oi_t *sensor_data, int cm, float low_angle, float high_angle)
 {
     double distanceTraveled = 0;
-    oi_setWheels(200, 200);
+    oi_setWheels(125, 125);
     float current_angle = low_angle;
     int IR_val = 0;
     double estimation = 0;

@@ -29,26 +29,46 @@ typedef struct {
     double driveDist;
 
 
+
 } scan_info;
 
 void avoidObject(oi_t *sensor_data,  scan_info *scanData);
 void scan_cone(int low, int high, scan_info *scanData);
-int rotate_degrees(int angle, int direction, oi_t *sensor_data);
+void rotate_degrees(int angle, int direction, oi_t *sensor_data);
 void update_distance(double distance, int direction);
+void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data);
 double horizontalPos = 0;
 double verticalPos = 0;
-#define POSITIVE_X = 0;
-#define POSITIVE_Y = 1;
-#define NEGATIVE_X = 2;
-#define NEGATIVE_Y = 3;
-int direction = 0; //0,1,2,3 for NWSE
+#define POSITIVE_X 0
+#define POSITIVE_Y 1
+#define NEGATIVE_X 2
+#define NEGATIVE_Y 3
+int directionGlobal = 0; //0,1,2,3 for NWSE
 
 int turnStatus = 0;
+void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data){
+    int direction = 90*(startDir - finalDir);
+    if(direction <0){
+        direction+= 360;
+    }
+    else if(direction > 360){
+        direction -= 360;
+    }
+    if(direction > 180){
 
-int rotate_degrees(int angle, int direction, oi_t *sensor_data){ //CCW is positive
+        rotate_degrees(startDir, -1 * 90, sensor_data);
+    }
+    else if(direction <180){
+        rotate_degrees(startDir, 1 * 90, sensor_data);
+    }
+    else if(direction == 180){
+        rotate_degrees(startDir, 2 * 90, sensor_data);
+    }
+}
+void rotate_degrees(int angle, int direction, oi_t *sensor_data){ //CCW is positive
     int angleChange = direction/90;
     if(angleChange>0){
-        angle+= angleChange;
+        angle+= angleChange;         //maybe problem?
         angle %=4;
         turn_counterclockwise(sensor_data, angleChange*90);
     }
@@ -59,7 +79,10 @@ int rotate_degrees(int angle, int direction, oi_t *sensor_data){ //CCW is positi
             angleChange*=-1;
             turn_clockwise(sensor_data, angleChange*90);
         }
+
+
     }
+    directionGlobal = angle;
 }
 void update_distance(double distance, int direction ){
     if(direction == 0){
@@ -110,19 +133,45 @@ int main(void)
     while (!stop)
     {
         oi_update(sensor_data);
+
+//        while (1) {
+//            scan_cone(60, 120, &scanData);
+//            sprintf(buffer, "Width: %.2f Distance: %.2f \n\r", scanData.adcWidth, scanData.averageAdc);
+//            uart_sendStr(buffer);
+//        }
+        while(1) {
+            button = button_getButton();
+            lcd_printf("%d",directionGlobal);
+            if(button == 1){
+                face_direction(directionGlobal, NEGATIVE_X, sensor_data);
+
+            }
+            else if(button == 2){
+                face_direction(directionGlobal, POSITIVE_X, sensor_data);
+            }
+            else if(button == 3){
+                face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
+            }
+            else if(button == 4){
+                face_direction(directionGlobal, POSITIVE_Y, sensor_data);
+            }
+            else{
+                continue;
+            }
+        }
 //        int pingVal = (((ping_read()/2)*.5)*34000)/16000000;
 //        int IR_val = adc_read();
-        scan_cone(60,120, &scanData);
+        scan_cone(45,135, &scanData);
 //         estimation = 0.0000228813 * (IR_val * IR_val) - 0.0981288 * IR_val + 115.33455;
         lcd_printf("%d, %.2f, %d, %d", scanData.averagePing, scanData.averageAdc, sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
         servo_move(90);
         int driveDist = fmin(200, scanData.averagePing);
-        update_distance(driveDist, direction);
+        update_distance(driveDist, directionGlobal);
 
         int status = move_scan(sensor_data, driveDist, 60, 120);
         if(OBJECT == status){
 
-            scan_cone(60,120, &scanData);
+            scan_cone(45,135, &scanData);
         }
         sprintf(buffer, "scan data ADC %.2f, PING  %d \r\n", scanData.averageAdc, scanData.averagePing);
                             uart_sendStr(buffer);
@@ -136,14 +185,14 @@ int main(void)
             {
 
                 turnStatus = 1;
-                rotate_degrees(direction, -90, sensor_data);
+                rotate_degrees(directionGlobal, -90, sensor_data);
 
                 sensor_data->distance = 0;
 
             }
             else
             {
-                rotate_degrees(direction, 180, sensor_data);
+                rotate_degrees(directionGlobal, 180, sensor_data);
 
 
                 stop = 1;
@@ -162,31 +211,7 @@ int main(void)
             //verticalSpan += sensor_data->distance;
         }
     }
-//    int RightOrLeft = 0; // 0 is right, 1 is left
-//
-//   // int adcVal =0;
-//    object_t[10] objects;
-//    while(1){
-//        if(RightOrLeft){
-//            for(int i = 0 + 60*RightOrLeft; i<120 +60*RightOrLeft; i++){
-//               // adcVal = adc_read();
-//                ticks = ping_getPulseWidth();
-//                time_ms = ping_getTimeMs(ticks);
-//                pingVal = ping_getDistanceCm(time_ms);
-//                //double  estimation = 0.0000228813 * (adcValue * adcValue) - 0.0981288 * adcValue + 115.33455;
-//
-//            }
-//        }
-//
-//        //scan area
-//
-//        //drive short distance in y
-//
-//        //move 35 cm downwards in x
-//
-//
-//    }
-    //lcd_printf("%.2f, %.2f", horizontalSpan, verticalSpan);
+
         }}
     oi_free(sensor_data);
 
@@ -198,7 +223,7 @@ void avoidObject(oi_t *sensor_data, scan_info *scanData)
 
     char buffer[50];
     //update_distance(driveDist, direction);
-    rotate_degrees(direction, 90, sensor_data);
+    rotate_degrees(directionGlobal, 90, sensor_data);
 
 
     scan_cone(45, 135, scanData);
@@ -210,9 +235,10 @@ void avoidObject(oi_t *sensor_data, scan_info *scanData)
     {
         avoidObject(sensor_data, scanData);
     }
-    move_forward(sensor_data, scanData->driveDist);
-    update_distance(scanData->driveDist, direction);
-    rotate_degrees(direction, -90, sensor_data);
+  //  move_forward(sensor_data, scanData->driveDist);
+    move_forward(sensor_data, scanData->driveDist - scanData->averageAdc); //sideways
+    update_distance(scanData->driveDist, directionGlobal);
+    rotate_degrees(directionGlobal, -90, sensor_data);
 
 
     scan_cone(45, 135, scanData);
@@ -220,37 +246,61 @@ void avoidObject(oi_t *sensor_data, scan_info *scanData)
     {
         avoidObject(sensor_data, scanData);
     }
-    move_forward(sensor_data, scanData->driveDist /*possibly, add the size of the pillar*/);
-    update_distance(scanData->driveDist, direction);
-    rotate_degrees(direction, -90, sensor_data);
+    move_forward(sensor_data, scanData->driveDist ); //straight
+    update_distance(scanData->driveDist, directionGlobal);
+    rotate_degrees(directionGlobal, -90, sensor_data);
 
     scan_cone(45, 135, scanData);
     if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist/2)
     {
         avoidObject(sensor_data, scanData);
     }
-    move_forward(sensor_data, scanData->driveDist);
-    update_distance(scanData->driveDist, direction);
-//    if (!turnStatus)
-//    {
-//    if(direction != NEGATIVE_X)
-//    {
-//        direction = NEGATIVE_X;
+
+
+
+
+    if (!turnStatus)
+    {
+
+        face_direction(directionGlobal, NEGATIVE_X, sensor_data);
+    }
+    else
+    {
+
+        face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
+    }
+    while (1)
+    {
+        scan_cone(45, 135, sensor_data);
+        if (scanData->averageAdc < 25)
+        {
+            avoidObject(sensor_data, scanData);
+        }
+        else
+        {
+            if (move_forward(sensor_data, 25) == BOUNDARY)
+            {
+                break;
+            }
+        }
+
+    }
+    //move_forward(sensor_data, scanData->driveDist); //move TO THE WHITE TAPE
+    //update_distance(scanData->driveDist, direction);
+
+
+
+
+
 //    }
-//}
-//else
-//{
-//if(direction != POSITIVE_Y)
-//{
-//    direction = POSITIVE_Y;
-//}
-//}
 
 
 
 
 
-    turn_counterclockwise(sensor_data, 90);
+
+
+
 
     //drive forward
 
@@ -278,7 +328,7 @@ void scan_cone(int low, int high, scan_info *scanData){
         estimation = 4150000 * pow(adcVal, -1.64);
         if(estimation < 25){
             sprintf(buffer, "Object hit at: %.2f, at angle %d \r\n", estimation,i);
-                    uart_sendStr(buffer);
+ //                   uart_sendStr(buffer);
             adcTickAmnt++;
             averageADC += estimation;
 
@@ -291,7 +341,7 @@ void scan_cone(int low, int high, scan_info *scanData){
         }
 
         sprintf(buffer, "angle: %d scan: %.2f, avercage: %.2f, object count: %d \r\n",i,  estimation, averageADC / ((double)adcTickAmnt), adcTickAmnt);
-        uart_sendStr(buffer);
+ //       uart_sendStr(buffer);
 
 
 
@@ -299,15 +349,16 @@ void scan_cone(int low, int high, scan_info *scanData){
 
     if(adcTickAmnt == 0 || pingTickAmnt == 0){
         sprintf(buffer, "No objects found!");
-                uart_sendStr(buffer);
-        scanData->averageAdc = 100;
-        scanData->averagePing = 100;
+//                uart_sendStr(buffer);
+        scanData->averageAdc = 200;
+        scanData->averagePing = 200;
+        scanData->driveDist = 25+35;
         return;
     }
     averageADC = averageADC / ((double)(adcTickAmnt));
     averagePing = averagePing/pingTickAmnt;
     sprintf(buffer, "Final output:  average: %.2f, object count: %d \r\n", averageADC, adcTickAmnt);
-            uart_sendStr(buffer);
+//            uart_sendStr(buffer);
     lcd_printf("%.2f, %d", averageADC, adcTickAmnt);
     scanData->averageAdc = averageADC;
     scanData->averagePing = averagePing;
@@ -320,19 +371,36 @@ void scan_cone(int low, int high, scan_info *scanData){
     scanData->pingWidth = pingWidth;
     if (adcTickAmnt > 0)
     {
+        if (scanData->averageAdc < 10)
+        {
+            if (scanData->adcWidth > 7)   // check the values for bounds
+            {
+                scanData->driveDist = 17 + 35 + scanData->averageAdc;
 
-        if (scanData->adcWidth > 10)
-        {
-            scanData->driveDist = 17 + 35+scanData->averageAdc;
+            }
+            else
+            {
+                scanData->driveDist = 35 + 11 + scanData->averageAdc;
+            }
+
         }
-        else if (scanData->adcWidth <= 10 && scanData->adcWidth > 5)
+        else
         {
-            scanData->driveDist = 35 + 11+scanData->averageAdc;
+            if (scanData->adcWidth > 11)   // check the values for bounds
+            {
+                scanData->driveDist = 17 + 35 + scanData->averageAdc;
+            }
+            else if (  scanData->adcWidth > 6)
+            {
+                scanData->driveDist = 35 + 11 + scanData->averageAdc;
+            }
+            else if (scanData->adcWidth > 0)
+            {
+                scanData->driveDist = 35 + 5 + scanData->averageAdc;
+            }
         }
-        else if (scanData->adcWidth > 0)
-        {
-            scanData->driveDist = 35+5+scanData->averageAdc;
-        }
+
+
 
     }
     else
@@ -341,7 +409,7 @@ void scan_cone(int low, int high, scan_info *scanData){
     }
 
     sprintf(buffer, " drive distance %.2f", scanData->driveDist);
-    uart_sendStr(buffer);
+//    uart_sendStr(buffer);
     lcd_printf("adc width: %.2f\r\n ping width: %/2f\r\n", adcWidth, pingWidth);
     if(adcTickAmnt > 0){
         return;
