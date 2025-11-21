@@ -121,9 +121,11 @@ void avoidObject(oi_t *sensor_data)
                 lcd_printf("average distance: %.2f", distance_to_object.averagePing);
                 if (distance_to_object.averagePing > 50) { // clear path to move
                     found_object_to_left = 0;
-                    oi_getDistance(sensor_data); //call
+                    double distance_before = sensor_data->distance*10; //call
                     move_forward(sensor_data, 50);
-                    double distance_moved = oi_getDistance(sensor_data);
+                    double distance_moved = sensor_data->distance*10 - distance_before;
+                    lcd_printf("traveled %.2f cm", (distance_moved));
+                    timer_waitMillis(1000);
                     distance_traveled_x -= distance_moved; //subtract bc moving on -x direction
                     turn_clockwise(sensor_data, 90);
                     facing = POSITIVE_Y;        // facing +y, break
@@ -131,16 +133,20 @@ void avoidObject(oi_t *sensor_data)
                 else { // object   facing -x
                     turn_counterclockwise(sensor_data, 90);
                     facing = NEGATIVE_Y;
-                    oi_getDistance(sensor_data); //call
-                    move_forward(sensor_data, 50);
-                    double distance_moved = oi_getDistance(sensor_data);
+                    double distance_before = sensor_data->distance*10; //call
+                    move_forward(sensor_data, 35+ 6);
+                    double distance_moved = sensor_data->distance*10 - distance_before;
                     distance_traveled_y -= distance_moved; //subtract bc moving on -y direction
                     turn_clockwise(sensor_data, 90);
                     facing = NEGATIVE_X; // turn back to the left   facing -x
                 }
+                lcd_printf("moving forward %.2f cm", (-distance_traveled_y));
+                timer_waitMillis(1000);
                 move_forward(sensor_data, -(distance_traveled_y) + 35);
                 turn_clockwise(sensor_data, 90);
                 facing = POSITIVE_X;
+                lcd_printf("moving forward %.2f cm", (-distance_traveled_x));
+                timer_waitMillis(1000);
                 move_forward(sensor_data, -(distance_traveled_x));
                 turn_counterclockwise(sensor_data, 90);
                 facing = POSITIVE_Y;
