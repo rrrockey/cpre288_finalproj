@@ -300,6 +300,48 @@ void avoidObject(oi_t *sensor_data, scan_info *scanData)
 
 }
 
+void mowing_sequence(oi_t *sensor_data) {
+#define RIGHT 0
+#define LEFT 1
+#define cyBot_length 35
+    scan_info scanData;
+    int turn_dir = RIGHT; // the next direction the bot has to turn after encountering tape
+
+    while (1) {
+        scan_cone(45,135, &scanData);
+        lcd_printf("%d, %.2f, %d, %d", scanData.averagePing, scanData.averageAdc, sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
+        servo_move(90);
+        int driveDist = fmin(200, scanData.averagePing);
+        update_distance(driveDist, directionGlobal);
+
+        int status = move_scan(sensor_data, driveDist, 60, 120);
+        if(status == OBJECT){
+
+            scan_cone(45,135, &scanData);
+        }
+
+        if (status == BOUNDARY) { // if white tape found, start new row
+
+            if (turn_dir == RIGHT) {
+                lcd_printf("found bound");
+                turn_clockwise(sensor_data, 90);
+                status = move_scan(sensor_data, cyBot_length, 60, 120);
+                // TODO handle hitting tape (on final turn)
+                turn_clockwise(sensor_data, 90);
+                turn_dir = LEFT;
+            }
+            else { // turn_dir == LEFT
+                lcd_printf("found bound");
+                turn_counterclockwise(sensor_data, 90);
+                status = move_scan(sensor_data, cyBot_length, 60, 120);
+                // TODO handle hitting tape (on final turn)
+                turn_counterclockwise(sensor_data, 90);
+                turn_dir = RIGHT;
+            }
+        }
+    }
+}
+
 int main(void)
 {
 
@@ -330,6 +372,9 @@ int main(void)
         int button = button_getButton();
         if(button == 1){
 
+            /*BEGIN TESTING MOWING SEQUENCE*/
+            mowing_sequence(sensor_data);
+            /*END TESTING MOWING SEQUENCE*/
 
 
     while (!stop)
