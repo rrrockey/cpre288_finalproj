@@ -31,18 +31,18 @@ typedef struct {
 
 
 } scan_info;
-
+int directionGlobal = 0; //0,1,2,3 for NWSE
 double horizontalPos = 0;
 double verticalPos = 0;
 #define POSITIVE_X 0
 #define POSITIVE_Y 1
 #define NEGATIVE_X 2
 #define NEGATIVE_Y 3
-int directionGlobal = 0; //0,1,2,3 for NWSE
+
 
 int turnStatus = 0;
-void rotate_degrees(int angle, int direction, oi_t *sensor_data){ //CCW is positive
-    int angleChange = direction/90;
+void rotate_degrees(int angle/*global direction*/, int turnChange/*change in angle*/, oi_t *sensor_data){ //CCW is positive
+    int angleChange = turnChange/90;
     if(angleChange>0){
         angle+= angleChange;         //maybe problem?
         angle %=4;
@@ -111,7 +111,7 @@ void scan_cone(int low, int high, scan_info *scanData){
     int adcVal = 0;
     int i =low;
     char buffer[200] = "";
-    for(i =low; i<high; i++){
+    for(i =low; i<high; i+=2){
         servo_move(i);
         adcVal = adc_read();
 //        estimation = 0.0000228813 * (adcVal * adcVal) - 0.0981288 * adcVal + 115.33455;
@@ -130,12 +130,13 @@ void scan_cone(int low, int high, scan_info *scanData){
             averagePing+= pingVal;
         }
 
-        sprintf(buffer, "angle: %d scan: %.2f, avercage: %.2f, object count: %d \r\n",i,  estimation, averageADC / ((double)adcTickAmnt), adcTickAmnt);
- //       uart_sendStr(buffer);
+        sprintf(buffer, "DATA %d, %.0f, %d\r\n", i, estimation, pingVal);
+        uart_sendStr(buffer);
 
 
 
     }
+    uart_sendStr("ENDSCAN\r\n");
 
     if(adcTickAmnt == 0 || pingTickAmnt == 0){
         sprintf(buffer, "No objects found!");
@@ -364,13 +365,57 @@ int main(void)
     scanData.adcWidth =0;
 
     int stop = 0;
-
-    double horizontalSpan =0;
+    int lastDirection;
+    double horizontalSpan = 0;
     double verticalSpan = 0;
     double estimation = 0;
-    while(1){
-        int button = button_getButton();
-        if(button == 1){
+    while (1)
+    {
+
+        char c = uart_receive();
+        if (c == 'w')
+        {
+            move_forward(sensor_data, 50);
+            update_distance(50, directionGlobal);
+            sprintf(buffer, "MOVE %.0f %.0f %d %d\r\n", horizontalPos+50, verticalPos, directionGlobal, 50);
+
+
+            uart_sendStr(buffer);
+
+        }
+        else if (c == 'a')
+        {
+            lastDirection = directionGlobal;
+            rotate_degrees(directionGlobal, 90, sensor_data);
+            sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
+            uart_sendStr(buffer);
+
+        }
+        else if (c == 'd')
+        {
+            lastDirection = directionGlobal;
+            rotate_degrees(directionGlobal, -90, sensor_data);
+            sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
+            uart_sendStr(buffer);
+        }
+        else if (c == 's')
+        {
+            move_backward(sensor_data, 50);
+            update_distance(-50, directionGlobal);
+            sprintf(buffer, "MOVE %.0f %.0f %d %d\r\n", horizontalPos, verticalPos, directionGlobal, -50);
+
+            uart_sendStr(buffer);
+        }
+        else if (c == 'h')
+        {
+
+            sprintf(buffer, "SCAN %.0f %.0f %d\r\n", horizontalPos, verticalPos, directionGlobal);
+            lcd_printf(buffer);
+            uart_sendStr(buffer);
+            scan_cone(0, 180, &scanData);
+        }
+        else if (c == 'm')
+        {
 
             /*BEGIN TESTING MOWING SEQUENCE*/
             mowing_sequence(sensor_data);
@@ -386,26 +431,26 @@ int main(void)
 //            sprintf(buffer, "Width: %.2f Distance: %.2f \n\r", scanData.adcWidth, scanData.averageAdc);
 //            uart_sendStr(buffer);
 //        }
-        while(1) {
-            button = button_getButton();
-            lcd_printf("%d",directionGlobal);
-            if(button == 1){
-                face_direction(directionGlobal, NEGATIVE_X, sensor_data);
-
-            }
-            else if(button == 2){
-                face_direction(directionGlobal, POSITIVE_X, sensor_data);
-            }
-            else if(button == 3){
-                face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
-            }
-            else if(button == 4){
-                face_direction(directionGlobal, POSITIVE_Y, sensor_data);
-            }
-            else{
-                continue;
-            }
-        }
+//        while(1) {
+//            button = button_getButton();
+//            lcd_printf("%d",directionGlobal);
+//            if(button == 1){
+//                face_direction(directionGlobal, NEGATIVE_X, sensor_data);
+//
+//            }
+//            else if(button == 2){
+//                face_direction(directionGlobal, POSITIVE_X, sensor_data);
+//            }
+//            else if(button == 3){
+//                face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
+//            }
+//            else if(button == 4){
+//                face_direction(directionGlobal, POSITIVE_Y, sensor_data);
+//            }
+//            else{
+//                continue;
+//            }
+//        }
 //        int pingVal = (((ping_read()/2)*.5)*34000)/16000000;
 //        int IR_val = adc_read();
         scan_cone(45,135, &scanData);
@@ -420,8 +465,8 @@ int main(void)
 
             scan_cone(45,135, &scanData);
         }
-        sprintf(buffer, "scan data ADC %.2f, PING  %d \r\n", scanData.averageAdc, scanData.averagePing);
-                            uart_sendStr(buffer);
+      //  sprintf(buffer, "scan data ADC %.2f, PING  %d \r\n", scanData.averageAdc, scanData.averagePing);
+                         //   uart_sendStr(buffer);
         if(scanData.averagePing < 10){
             avoidObject(sensor_data , &scanData);
 
