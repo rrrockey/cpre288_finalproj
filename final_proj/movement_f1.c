@@ -55,6 +55,54 @@ int move_forward(oi_t *sensor_data, int cm)
 }
 
 
+int trace_hole(oi_t *sensor_data)
+{
+    double distanceTraveled = 0;
+    oi_setWheels(50, 50);
+
+    while (1)
+    {
+        oi_update(sensor_data);
+
+        if (sensor_data->bumpLeft || sensor_data->bumpRight)
+        {
+            oi_setWheels(0, 0);
+            distanceTraveled += sensor_data->distance;
+            return BUMP;
+        }
+        if (sensor_data->cliffFrontLeftSignal > 2500
+                || sensor_data->cliffFrontRightSignal > 2500)
+        {
+            oi_setWheels(0, 0);
+            distanceTraveled += sensor_data->distance;
+            return BOUNDARY;
+        }
+        if (sensor_data->cliffLeftSignal >= 100
+                && sensor_data->cliffRightSignal >= 100)
+        {
+            oi_setWheels(0, 0);
+            distanceTraveled += sensor_data->distance;
+            return CLIFF;
+        }
+        else
+        {
+
+        }
+
+        distanceTraveled += sensor_data->distance;
+    }
+
+    oi_setWheels(0, 0);
+    timer_waitMillis(300);
+
+#if DEBUG
+    printf("Moved forward: %.2f mm\n", distanceTraveled);
+#endif
+
+    return distanceTraveled;
+}
+
+
 int move_scan(oi_t *sensor_data, int cm, float low_angle, float high_angle)
 {
     double distanceTraveled = 0;
