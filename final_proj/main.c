@@ -31,7 +31,7 @@ typedef struct {
 
 
 } scan_info;
-int directionGlobal = 1; //0,1,2,3 for NWSE
+int directionGlobal = 0; //0,1,2,3 for NWSE: starts at 0 for positive X
 double horizontalPos = 0;
 double verticalPos = 0;
 #define POSITIVE_X 0
@@ -42,7 +42,9 @@ double verticalPos = 0;
 
 int turnStatus = 0;
 void rotate_degrees(int angle/*global direction*/, int turnChange/*change in angle*/, oi_t *sensor_data){ //CCW is positive
+    char buffer[200];
     int angleChange = turnChange/90;
+    int startAngle = directionGlobal;
     if(angleChange>0){
         angle+= angleChange;         //maybe problem?
         angle %=4;
@@ -51,8 +53,8 @@ void rotate_degrees(int angle/*global direction*/, int turnChange/*change in ang
     else{
         angle--;
         if(angle<0){
-            angle +=3;
-            angleChange*=-1;
+            angle +=4;
+            angleChange *= -1;
             turn_clockwise(sensor_data, angleChange*90);
         } else {
             turn_clockwise(sensor_data, 90);
@@ -60,6 +62,8 @@ void rotate_degrees(int angle/*global direction*/, int turnChange/*change in ang
 
 
     }
+    sprintf(buffer, "TURN %d %d\r\n", startAngle, angle);
+                uart_sendStr(buffer);
     directionGlobal = angle;
 }
 
@@ -76,10 +80,10 @@ void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data){
 //        direction -= 360;
 //    }
     if(direction == -270){
-        rotate_degrees(startDir, 1 * 90, sensor_data);
+        rotate_degrees(startDir, -1 * 90, sensor_data);
     }
     else if(direction == 270){
-        rotate_degrees(startDir, -1 * 90, sensor_data);
+        rotate_degrees(startDir, 1 * 90, sensor_data);
     }
     else if(direction == 90){
         rotate_degrees(startDir, -1 * 90, sensor_data);
@@ -90,9 +94,12 @@ void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data){
     else if(direction == 180 || direction == -180){
         rotate_degrees(startDir, 2 * 90, sensor_data);
     }
+
+    lcd_printf("direction: %d", directionGlobal);
 }
 
 void update_distance(double distance, int direction ){
+    char buffer[200];
     if(direction == 0){
         horizontalPos+=distance;
     }
@@ -105,6 +112,8 @@ void update_distance(double distance, int direction ){
         else if(direction ==3){
             verticalPos-=distance;
         }
+    sprintf(buffer, "MOVE %.0f %.0f %d %.0f\r\n", horizontalPos, verticalPos, direction, distance);
+                uart_sendStr(buffer);
 }
 
 
@@ -152,16 +161,19 @@ void scan_cone(int low, int high, scan_info *scanData){
 
     if(adcTickAmnt == 0 || pingTickAmnt == 0){
         sprintf(buffer, "No objects found!");
-//                uart_sendStr(buffer);
+               uart_sendStr(buffer);
+        scanData->driveDist = 50 + scanData->adcWidth; //need to find a fix for this logic, current just a hard patched 15 cm + the adcWidth (12/1)
         scanData->averageAdc = 200;
         scanData->averagePing = 200;
-        scanData->driveDist = 25+35;
+
+        sprintf(buffer, "no object found:  average width: %.2f, drive dist %.2f, object count: %d \r\n", scanData->adcWidth, scanData->driveDist, adcTickAmnt);
+            uart_sendStr(buffer);
         return;
     }
     averageADC = averageADC / ((double)(adcTickAmnt));
     averagePing = averagePing/pingTickAmnt;
-    sprintf(buffer, "Final output:  average: %.2f, object count: %d \r\n", averageADC, adcTickAmnt);
-//            uart_sendStr(buffer);
+    sprintf(buffer, "Final output:  average: %.2f, drive dist %.2f, object count: %d \r\n", averageADC, scanData->driveDist, adcTickAmnt);
+        uart_sendStr(buffer);
     lcd_printf("%.2f, %d", averageADC, adcTickAmnt);
     scanData->averageAdc = averageADC;
     scanData->averagePing = averagePing;
@@ -184,6 +196,7 @@ void scan_cone(int low, int high, scan_info *scanData){
             else
             {
                 scanData->driveDist = 35 + 11 + scanData->averageAdc;
+
             }
 
         }
@@ -192,10 +205,12 @@ void scan_cone(int low, int high, scan_info *scanData){
             if (scanData->adcWidth > 11)   // check the values for bounds
             {
                 scanData->driveDist = 17 + 35 + scanData->averageAdc;
+
             }
             else if (  scanData->adcWidth > 6)
             {
                 scanData->driveDist = 35 + 11 + scanData->averageAdc;
+
             }
             else if (scanData->adcWidth > 0)
             {
@@ -243,8 +258,8 @@ void avoidObject(oi_t *sensor_data, scan_info *scanData)
         avoidObject(sensor_data, scanData);
     }
   //  move_forward(sensor_data, scanData->driveDist);
-    move_forward(sensor_data, scanData->driveDist - scanData->averageAdc); //sideways
-    update_distance(scanData->driveDist, directionGlobal);
+    move_forward(sensor_data, scanData->driveDist / 2); // - scanData->averageAdc); //sideways
+    update_distance(scanData->driveDist / 2, directionGlobal);
     rotate_degrees(directionGlobal, -90, sensor_data);
 
 
@@ -255,13 +270,13 @@ void avoidObject(oi_t *sensor_data, scan_info *scanData)
     }
     move_forward(sensor_data, scanData->driveDist ); //straight
     update_distance(scanData->driveDist, directionGlobal);
-    rotate_degrees(directionGlobal, -90, sensor_data);
-
-    scan_cone(45, 135, scanData);
-    if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist/2)
-    {
-        avoidObject(sensor_data, scanData);
-    }
+//    rotate_degrees(directionGlobal, -90, sensor_data);
+//
+//    scan_cone(45, 135, scanData);
+//    if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist/2)
+//    {
+//        avoidObject(sensor_data, scanData);
+//    }
 
 
 
@@ -269,14 +284,18 @@ void avoidObject(oi_t *sensor_data, scan_info *scanData)
     if (!turnStatus)
     {
 
-        face_direction(directionGlobal, NEGATIVE_X, sensor_data);
+        face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
     }
     else
     {
 
-        face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
+        face_direction(directionGlobal, POSITIVE_X, sensor_data);
     }
-    while (1)
+
+
+
+    int check = 0;
+    while (check != BOUNDARY)
     {
         scan_cone(45, 135, scanData);
         if (scanData->averageAdc < 25)
@@ -285,10 +304,9 @@ void avoidObject(oi_t *sensor_data, scan_info *scanData)
         }
         else
         {
-            if (move_forward(sensor_data, 25) == BOUNDARY)
-            {
-                break;
-            }
+            check = move_forward(sensor_data, 25);
+            face_direction(directionGlobal, POSITIVE_X, sensor_data);
+
         }
 
     }
@@ -381,64 +399,43 @@ int main(void)
     double horizontalSpan = 0;
     double verticalSpan = 0;
     double estimation = 0;
-
-    while(1) {
-               int button = button_getButton();
-               lcd_printf("%d",directionGlobal);
-               if(button == 1){
-                   face_direction(directionGlobal, NEGATIVE_X, sensor_data);
-
-               }
-               else if(button == 2){
-                   face_direction(directionGlobal, POSITIVE_X, sensor_data);
-               }
-               else if(button == 3){
-                   face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
-               }
-               else if(button == 4){
-                   face_direction(directionGlobal, POSITIVE_Y, sensor_data);
-               }
-               else{
-                   continue;
-               }
-    }
-
     while (1)
     {
 
-        char c = uart_receive();
+//        char c = uart_receive();
+        char c = 'L';
+        int button = button_getButton();
+        int moveStatus = 0;
         if (c == 'w')
         {
             move_forward(sensor_data, 50);
             update_distance(50, directionGlobal);
-            sprintf(buffer, "MOVE %.0f %.0f %d %d\r\n", horizontalPos+50, verticalPos, directionGlobal, 50);
-
-
-            uart_sendStr(buffer);
+            //sprintf(buffer, "MOVE %.0f %.0f %d %d\r\n", horizontalPos, verticalPos, directionGlobal, 50);
+           // uart_sendStr(buffer);
 
         }
         else if (c == 'a')
         {
             lastDirection = directionGlobal;
             rotate_degrees(directionGlobal, 90, sensor_data);
-            sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
-            uart_sendStr(buffer);
+//            sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
+//            uart_sendStr(buffer);
 
         }
         else if (c == 'd')
         {
             lastDirection = directionGlobal;
             rotate_degrees(directionGlobal, -90, sensor_data);
-            sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
-            uart_sendStr(buffer);
+//            sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
+//            uart_sendStr(buffer);
         }
         else if (c == 's')
         {
             move_backward(sensor_data, 50);
             update_distance(-50, directionGlobal);
-            sprintf(buffer, "MOVE %.0f %.0f %d %d\r\n", horizontalPos, verticalPos, directionGlobal, -50);
+           // sprintf(buffer, "MOVE %.0f %.0f %d %d\r\n", horizontalPos, verticalPos, directionGlobal, -50);
 
-            uart_sendStr(buffer);
+           // uart_sendStr(buffer);
         }
         else if (c == 'h')
         {
@@ -448,11 +445,11 @@ int main(void)
             uart_sendStr(buffer);
             scan_cone(0, 180, &scanData);
         }
-        else if (c == 'm')
+        else if (c == 'm' || button == 1)
         {
 
             /*BEGIN TESTING MOWING SEQUENCE*/
-            mowing_sequence(sensor_data);
+            //mowing_sequence(sensor_data);
             /*END TESTING MOWING SEQUENCE*/
 
 
@@ -460,33 +457,34 @@ int main(void)
     {
         oi_update(sensor_data);
 
-        while (1) {
-            scan_cone(60, 120, &scanData);
-            sprintf(buffer, "Width: %.2f Distance: %.2f \n\r", scanData.adcWidth, scanData.averageAdc);
-            uart_sendStr(buffer);
-        }
-        while(1) {
-            int button = button_getButton();
-            lcd_printf("%d",directionGlobal);
-            if(button == 1){
-                face_direction(directionGlobal, NEGATIVE_X, sensor_data);
-
-            }
-            else if(button == 2){
-                face_direction(directionGlobal, POSITIVE_X, sensor_data);
-            }
-            else if(button == 3){
-                face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
-            }
-            else if(button == 4){
-                face_direction(directionGlobal, POSITIVE_Y, sensor_data);
-            }
-            else{
-                continue;
-            }
-        }
+//        while (1) {
+//            scan_cone(60, 120, &scanData);
+//            sprintf(buffer, "Width: %.2f Distance: %.2f \n\r", scanData.adcWidth, scanData.averageAdc);
+//            uart_sendStr(buffer);
+//        }
+//        while(1) {
+//            button = button_getButton();
+//            lcd_printf("%d",directionGlobal);
+//            if(button == 1){
+//                face_direction(directionGlobal, NEGATIVE_X, sensor_data);
+//
+//            }
+//            else if(button == 2){
+//                face_direction(directionGlobal, POSITIVE_X, sensor_data);
+//            }
+//            else if(button == 3){
+//                face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
+//            }
+//            else if(button == 4){
+//                face_direction(directionGlobal, POSITIVE_Y, sensor_data);
+//            }
+//            else{
+//                continue;
+//            }
+//        }
 //        int pingVal = (((ping_read()/2)*.5)*34000)/16000000;
 //        int IR_val = adc_read();
+
         scan_cone(45,135, &scanData);
 //         estimation = 0.0000228813 * (IR_val * IR_val) - 0.0981288 * IR_val + 115.33455;
         lcd_printf("%d, %.2f, %d, %d", scanData.averagePing, scanData.averageAdc, sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
@@ -503,6 +501,8 @@ int main(void)
                          //   uart_sendStr(buffer);
         if(scanData.averagePing < 10){
             avoidObject(sensor_data , &scanData);
+            sprintf(buffer, "Broke recursion %d <---------------------------\r\n", directionGlobal);
+            uart_sendStr(buffer);
 
         }
         if (status == BOUNDARY)
@@ -511,7 +511,9 @@ int main(void)
             {
 
                 turnStatus = 1;
-                rotate_degrees(directionGlobal, -90, sensor_data);
+                rotate_degrees(directionGlobal, 90, sensor_data);
+                sprintf(buffer, "EDGE HORIZONTAL %.0f", horizontalPos);
+                uart_sendStr(buffer);
 
                 sensor_data->distance = 0;
 
@@ -519,7 +521,8 @@ int main(void)
             else
             {
                 rotate_degrees(directionGlobal, 180, sensor_data);
-
+                sprintf(buffer, "EDGE VERTICAL %.0f", verticalPos);
+                uart_sendStr(buffer);
 
                 stop = 1;
             }
@@ -538,7 +541,8 @@ int main(void)
         }
     }
 
-        }}
+        }
+    }
     oi_free(sensor_data);
 
     return 0;
