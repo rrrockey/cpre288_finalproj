@@ -31,7 +31,7 @@ typedef struct {
 
 
 } scan_info;
-int directionGlobal = 0; //0,1,2,3 for NWSE
+int directionGlobal = 1; //0,1,2,3 for NWSE
 double horizontalPos = 0;
 double verticalPos = 0;
 #define POSITIVE_X 0
@@ -54,6 +54,8 @@ void rotate_degrees(int angle/*global direction*/, int turnChange/*change in ang
             angle +=3;
             angleChange*=-1;
             turn_clockwise(sensor_data, angleChange*90);
+        } else {
+            turn_clockwise(sensor_data, 90);
         }
 
 
@@ -63,23 +65,33 @@ void rotate_degrees(int angle/*global direction*/, int turnChange/*change in ang
 
 void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data){
     int direction = 90*(startDir - finalDir);
-    if(direction <0){
-        direction+= 360;
+    if(direction == 0) {
+        return;
     }
-    else if(direction > 360){
-        direction -= 360;
-    }
-    if(direction > 180){
 
-        rotate_degrees(startDir, -1 * 90, sensor_data);
-    }
-    else if(direction <180){
+//    if(direction <0){
+//        direction+= 360;
+//    }
+//    else if(direction > 360){
+//        direction -= 360;
+//    }
+    if(direction == -270){
         rotate_degrees(startDir, 1 * 90, sensor_data);
     }
-    else if(direction == 180){
+    else if(direction == 270){
+        rotate_degrees(startDir, -1 * 90, sensor_data);
+    }
+    else if(direction == 90){
+        rotate_degrees(startDir, -1 * 90, sensor_data);
+    }
+    else if(direction == -90){
+        rotate_degrees(startDir, 1 * 90, sensor_data);
+    }
+    else if(direction == 180 || direction == -180){
         rotate_degrees(startDir, 2 * 90, sensor_data);
     }
 }
+
 void update_distance(double distance, int direction ){
     if(direction == 0){
         horizontalPos+=distance;
@@ -369,6 +381,28 @@ int main(void)
     double horizontalSpan = 0;
     double verticalSpan = 0;
     double estimation = 0;
+
+    while(1) {
+               int button = button_getButton();
+               lcd_printf("%d",directionGlobal);
+               if(button == 1){
+                   face_direction(directionGlobal, NEGATIVE_X, sensor_data);
+
+               }
+               else if(button == 2){
+                   face_direction(directionGlobal, POSITIVE_X, sensor_data);
+               }
+               else if(button == 3){
+                   face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
+               }
+               else if(button == 4){
+                   face_direction(directionGlobal, POSITIVE_Y, sensor_data);
+               }
+               else{
+                   continue;
+               }
+    }
+
     while (1)
     {
 
@@ -426,31 +460,31 @@ int main(void)
     {
         oi_update(sensor_data);
 
-//        while (1) {
-//            scan_cone(60, 120, &scanData);
-//            sprintf(buffer, "Width: %.2f Distance: %.2f \n\r", scanData.adcWidth, scanData.averageAdc);
-//            uart_sendStr(buffer);
-//        }
-//        while(1) {
-//            button = button_getButton();
-//            lcd_printf("%d",directionGlobal);
-//            if(button == 1){
-//                face_direction(directionGlobal, NEGATIVE_X, sensor_data);
-//
-//            }
-//            else if(button == 2){
-//                face_direction(directionGlobal, POSITIVE_X, sensor_data);
-//            }
-//            else if(button == 3){
-//                face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
-//            }
-//            else if(button == 4){
-//                face_direction(directionGlobal, POSITIVE_Y, sensor_data);
-//            }
-//            else{
-//                continue;
-//            }
-//        }
+        while (1) {
+            scan_cone(60, 120, &scanData);
+            sprintf(buffer, "Width: %.2f Distance: %.2f \n\r", scanData.adcWidth, scanData.averageAdc);
+            uart_sendStr(buffer);
+        }
+        while(1) {
+            int button = button_getButton();
+            lcd_printf("%d",directionGlobal);
+            if(button == 1){
+                face_direction(directionGlobal, NEGATIVE_X, sensor_data);
+
+            }
+            else if(button == 2){
+                face_direction(directionGlobal, POSITIVE_X, sensor_data);
+            }
+            else if(button == 3){
+                face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
+            }
+            else if(button == 4){
+                face_direction(directionGlobal, POSITIVE_Y, sensor_data);
+            }
+            else{
+                continue;
+            }
+        }
 //        int pingVal = (((ping_read()/2)*.5)*34000)/16000000;
 //        int IR_val = adc_read();
         scan_cone(45,135, &scanData);
