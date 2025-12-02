@@ -42,7 +42,9 @@ double verticalPos = 0;
 
 int turnStatus = 0;
 void rotate_degrees(int angle/*global direction*/, int turnChange/*change in angle*/, oi_t *sensor_data){ //CCW is positive
+    char buffer[200];
     int angleChange = turnChange/90;
+    int startAngle = directionGlobal;
     if(angleChange>0){
         angle+= angleChange;         //maybe problem?
         angle %=4;
@@ -51,36 +53,50 @@ void rotate_degrees(int angle/*global direction*/, int turnChange/*change in ang
     else{
         angle--;
         if(angle<0){
-            angle +=3;
+            angle +=4;
             angleChange*=-1;
             turn_clockwise(sensor_data, angleChange*90);
+        } else {
+            turn_clockwise(sensor_data, 90);
         }
 
 
     }
+    sprintf(buffer, "TURN %d %d\r\n", startAngle, angle);
+                uart_sendStr(buffer);
     directionGlobal = angle;
 }
 
 void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data){
     int direction = 90*(startDir - finalDir);
-    if(direction <0){
-        direction+= 360;
+    if(direction == 0) {
+        return;
     }
-    else if(direction > 360){
-        direction -= 360;
-    }
-    if(direction > 180){
 
-        rotate_degrees(startDir, -1 * 90, sensor_data);
-    }
-    else if(direction <180){
+//    if(direction <0){
+//        direction+= 360;
+//    }
+//    else if(direction > 360){
+//        direction -= 360;
+//    }
+    if(direction == -270){
         rotate_degrees(startDir, 1 * 90, sensor_data);
     }
-    else if(direction == 180){
+    else if(direction == 270){
+        rotate_degrees(startDir, -1 * 90, sensor_data);
+    }
+    else if(direction == 90){
+        rotate_degrees(startDir, -1 * 90, sensor_data);
+    }
+    else if(direction == -90){
+        rotate_degrees(startDir, 1 * 90, sensor_data);
+    }
+    else if(direction == 180 || direction == -180){
         rotate_degrees(startDir, 2 * 90, sensor_data);
     }
 }
 void update_distance(double distance, int direction ){
+    char buffer[200];
     if(direction == 0){
         horizontalPos+=distance;
     }
@@ -93,6 +109,8 @@ void update_distance(double distance, int direction ){
         else if(direction ==3){
             verticalPos-=distance;
         }
+    sprintf(buffer, "MOVE %.0f %.0f %d %.0f\r\n", horizontalPos, verticalPos, direction, distance);
+                uart_sendStr(buffer);
 }
 
 
@@ -373,38 +391,37 @@ int main(void)
     {
 
         char c = uart_receive();
+        int moveStatus = 0;
         if (c == 'w')
         {
             move_forward(sensor_data, 50);
             update_distance(50, directionGlobal);
-            sprintf(buffer, "MOVE %.0f %.0f %d %d\r\n", horizontalPos+50, verticalPos, directionGlobal, 50);
-
-
-            uart_sendStr(buffer);
+            //sprintf(buffer, "MOVE %.0f %.0f %d %d\r\n", horizontalPos, verticalPos, directionGlobal, 50);
+           // uart_sendStr(buffer);
 
         }
         else if (c == 'a')
         {
             lastDirection = directionGlobal;
             rotate_degrees(directionGlobal, 90, sensor_data);
-            sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
-            uart_sendStr(buffer);
+//            sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
+//            uart_sendStr(buffer);
 
         }
         else if (c == 'd')
         {
             lastDirection = directionGlobal;
             rotate_degrees(directionGlobal, -90, sensor_data);
-            sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
-            uart_sendStr(buffer);
+//            sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
+//            uart_sendStr(buffer);
         }
         else if (c == 's')
         {
             move_backward(sensor_data, 50);
             update_distance(-50, directionGlobal);
-            sprintf(buffer, "MOVE %.0f %.0f %d %d\r\n", horizontalPos, verticalPos, directionGlobal, -50);
+           // sprintf(buffer, "MOVE %.0f %.0f %d %d\r\n", horizontalPos, verticalPos, directionGlobal, -50);
 
-            uart_sendStr(buffer);
+           // uart_sendStr(buffer);
         }
         else if (c == 'h')
         {
@@ -418,7 +435,7 @@ int main(void)
         {
 
             /*BEGIN TESTING MOWING SEQUENCE*/
-            mowing_sequence(sensor_data);
+            //mowing_sequence(sensor_data);
             /*END TESTING MOWING SEQUENCE*/
 
 
@@ -477,7 +494,9 @@ int main(void)
             {
 
                 turnStatus = 1;
-                rotate_degrees(directionGlobal, -90, sensor_data);
+                rotate_degrees(directionGlobal, 90, sensor_data);
+                sprintf(buffer, "EDGE HORIZONTAL %.0f", horizontalPos);
+                uart_sendStr(buffer);
 
                 sensor_data->distance = 0;
 
@@ -485,7 +504,8 @@ int main(void)
             else
             {
                 rotate_degrees(directionGlobal, 180, sensor_data);
-
+                sprintf(buffer, "EDGE VERTICAL %.0f", verticalPos);
+                uart_sendStr(buffer);
 
                 stop = 1;
             }

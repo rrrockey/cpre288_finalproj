@@ -27,6 +27,9 @@ class CyBotGUI:
         self.scanning = False
         self.sock = None
         self.cybot = None
+        self.horizontal_edge = None
+        self.vertical_edge = None
+        self.boundary_rect = None
 
         # UI Setup
         top = tk.Frame(root, pady=5)
@@ -75,9 +78,30 @@ class CyBotGUI:
             x1, y1 = self.to_screen(MAX_X_CM, y)
             self.canvas.create_line(x0, y0, x1, y1, fill="#eee")
         
+        #x0, y0 = self.to_screen(0, 0)
+       # x1, y1 = self.to_screen(MAX_X_CM, MAX_Y_CM)
+        #self.canvas.create_rectangle(x0, y0, x1, y1, outline="gray", width=2)
+    def try_draw_boundary(self):
+        """Draw the boundary rectangle once both edges are known."""
+
+        # We need both edges to exist
+        if self.horizontal_edge is None or self.vertical_edge is None:
+            return
+
+        # Delete previous rectangle if robot updates edges
+        if self.boundary_rect is not None:
+            self.canvas.delete(self.boundary_rect)
+
+        # Convert to screen coords
         x0, y0 = self.to_screen(0, 0)
-        x1, y1 = self.to_screen(MAX_X_CM, MAX_Y_CM)
-        self.canvas.create_rectangle(x0, y0, x1, y1, outline="gray", width=2)
+        x1, y1 = self.to_screen(self.horizontal_edge, self.vertical_edge)
+
+        # Draw new rectangle
+        self.boundary_rect = self.canvas.create_rectangle(
+            x0, y0, x1, y1, outline="red", width=3
+        )
+
+        self.log(f"Boundary drawn: {self.horizontal_edge} x {self.vertical_edge} cm")
 
     def connect(self):
         #connect to cybot
@@ -146,47 +170,80 @@ class CyBotGUI:
             elif cmd == "ENDSCAN":
                 self.scanning = False
                 self.draw_scan()
+            elif CMD == "EDGE":
+                if (parts[1] == "VERTICAL"):
+                    self.vertical_edge = float(parts[2])
+                    self.log(f"Vertical edge set: {length} cm")
+                elif (parts[1] == "HORIZONTAL"):
+                    self.horizontal_edge = float(parts[2])
+                    self.log(f"Horizontal edge set: {length} cm")
+                self.try_draw_boundary()
+                    
+                
         except: pass
 
     def draw_scan(self):
-        # Group contiguous scan points into objects based on distance 
         objects = []
         curr = []
+
+        ANGLE_STEP = 2.2
+        DIST_THRESH = 20
+        MIN_POINTS = 5
+        MIN_WIDTH = 8
+
+        last_angle = None
+        last_dist = None
+
         for p in self.scan_data:
-            # Use IR if close <50cm, otherwise Ping
-            dist = p['ir'] if p['ir'] < 50 else p['ping']
-            
-            if dist < 200: curr.append(p)
-            elif curr:
-                # End of an object, add to list
+
+            # Validation filter
+            d = self.valid_distance(p['ir'], p['ping'])
+            if d is None:
+                continue
+
+            angle = p['a']
+
+            if not curr:
+                curr.append({'a': angle, 'd': d})
+                last_angle = angle
+                last_dist = d
+                continue
+
+            angle_diff = angle - last_angle
+            dist_diff = abs(d - last_dist)
+
+            if angle_diff <= ANGLE_STEP and dist_diff <= DIST_THRESH:
+                curr.append({'a': angle, 'd': d})
+            else:
+                if len(curr) >= MIN_POINTS:
+                    width = curr[-1]['a'] - curr[0]['a']
+                    if width >= MIN_WIDTH:
+                        objects.append(curr)
+                curr = [{'a': angle, 'd': d}]
+
+            last_angle = angle
+            last_dist = d
+
+        # last object
+        if len(curr) >= MIN_POINTS:
+            width = curr[-1]['a'] - curr[0]['a']
+            if width >= MIN_WIDTH:
                 objects.append(curr)
-                curr = []
-        if curr: objects.append(curr)
-        
-        # Draw each detected object
+
+        # ==== DRAWING ====
         for obj in objects:
-            # Calculate average angle and distance for the object
             avg_a = sum(p['a'] for p in obj) / len(obj)
-            valid_ir = [p['ir'] for p in obj if p['ir'] < 50] #filters list for only within range
-            valid_ping = [p['ping'] for p in obj if p['ping'] < 200]
-            
-            # Convert robot-relative polar coordinates to screen coordinates
-            # Robot's direction (0-3) * 90 degrees + object angle - 90 offset
+            avg_d = sum(p['d'] for p in obj) / len(obj)
+
             bot_deg = self.dir * 90
             rad = math.radians(bot_deg + (avg_a - 90))
-            
-            # Draw Ping detection (Blue) - Larger circle
-            if valid_ping:
-                d = sum(valid_ping)/len(valid_ping)
-                sx, sy = self.to_screen(self.x + d*math.cos(rad), self.y + d*math.sin(rad))
-                r = (d * 0.15) * SCALE # Radius scales with distance
-                self.canvas.create_oval(sx-r, sy-r, sx+r, sy+r, outline="blue", width=2)
-            
-            # Draw IR detection (Red) - Smaller circle, drawn on top
-            if valid_ir:
-                d = sum(valid_ir)/len(valid_ir)
-                sx, sy = self.to_screen(self.x + d*math.cos(rad), self.y + d*math.sin(rad))
-                self.canvas.create_oval(sx-3, sy-3, sx+3, sy+3, outline="red", width=2)
+
+            sx, sy = self.to_screen(self.x + avg_d*math.cos(rad),
+                                    self.y + avg_d*math.sin(rad))
+
+            r = avg_d * 0.15 * SCALE
+            self.canvas.create_oval(sx-r, sy-r, sx+r, sy+r,
+                                    outline="blue", width=2)
 
     def to_screen(self, x, y):
         margin = 50
@@ -201,6 +258,21 @@ class CyBotGUI:
         self.log_box.insert(tk.END, msg + "\n")
         self.log_box.see(tk.END)
         self.log_box.config(state='disabled')
+    def valid_distance(self, ir, ping):
+        # IR is valid only < 50 cm
+        if ir < 50:
+            return ir
+
+        # If ping is absurdly different from IR, throw it away
+        if abs(ir - ping) > 50:
+            return None
+
+        # Accept ping normally (but limit max range)
+        if 0 < ping < 500:
+            return ping
+
+        return None
+
 
 if __name__ == "__main__":
     root = tk.Tk()
