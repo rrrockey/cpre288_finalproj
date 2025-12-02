@@ -346,8 +346,7 @@ void mowing_sequence(oi_t *sensor_data) {
         double distance_moved = sensor_data->distance - distance_before;
         update_distance(distance_moved, directionGlobal);
 
-        sprintf(buffer, "MOVE %.0f %.0f %d %.0f\r\n", horizontalPos, verticalPos, directionGlobal, distance_moved);
-        uart_sendStr(buffer);
+
 
 
         if(status == OBJECT){
@@ -375,8 +374,6 @@ void mowing_sequence(oi_t *sensor_data) {
                 distance_moved = sensor_data->distance - distance_before;
                 update_distance(distance_moved, directionGlobal);
 
-                sprintf(buffer, "MOVE %.0f %.0f %d %.0f\r\n", horizontalPos, verticalPos, directionGlobal, distance_moved);
-                uart_sendStr(buffer);
 
 
                 if (status == BOUNDARY) {
@@ -403,8 +400,7 @@ void mowing_sequence(oi_t *sensor_data) {
                 distance_moved = sensor_data->distance - distance_before;
                 update_distance(distance_moved, directionGlobal);
 
-                sprintf(buffer, "MOVE %.0f %.0f %d %.0f\r\n", horizontalPos, verticalPos, directionGlobal, distance_moved);
-                uart_sendStr(buffer);
+
                 if (status == BOUNDARY) {
                                     final_row = 1;
                                 }
@@ -459,39 +455,26 @@ int main(void)
         {
             move_forward(sensor_data, 50);
             update_distance(50, directionGlobal);
-            //sprintf(buffer, "MOVE %.0f %.0f %d %d\r\n", horizontalPos, verticalPos, directionGlobal, 50);
-           // uart_sendStr(buffer);
 
         }
         else if (c == 'a')
         {
             lastDirection = directionGlobal;
             rotate_degrees(directionGlobal, 90, sensor_data);
-//            sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
-//            uart_sendStr(buffer);
 
         }
         else if (c == 'd')
         {
             lastDirection = directionGlobal;
             rotate_degrees(directionGlobal, -90, sensor_data);
-//            sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
-//            uart_sendStr(buffer);
         }
         else if (c == 's')
         {
             move_backward(sensor_data, 50);
             update_distance(-50, directionGlobal);
-           // sprintf(buffer, "MOVE %.0f %.0f %d %d\r\n", horizontalPos, verticalPos, directionGlobal, -50);
-
-           // uart_sendStr(buffer);
         }
         else if (c == 'h')
         {
-
-            //sprintf(buffer, "SCAN %.0f %.0f %d\r\n", horizontalPos, verticalPos, directionGlobal);
-           // lcd_printf(buffer);
-           // uart_sendStr(buffer);
             scan_cone(0, 180, &scanData);
         }
         else if (c == 'm')
