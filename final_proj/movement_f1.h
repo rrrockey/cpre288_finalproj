@@ -7,6 +7,7 @@
 #define BUMP 0
 #define BOUNDARY 1
 #define CLIFF 2
+#define OBJECT 3
 #define DEBUG 0
 
 int move_forward(oi_t *sensor_data, int cm);
@@ -22,3 +23,4 @@ void avoid_obstacle(oi_t *sensor_data, int bump_status);
 void calibrate_forward_movement(oi_t *sensor_data);
 
 void calibrate_turning(oi_t *sensor_data);
+int move_scan(oi_t *sensor_data, int cm, float low_angle, float high_angle);

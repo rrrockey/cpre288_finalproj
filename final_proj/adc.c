@@ -34,11 +34,13 @@ void adc_init(void) {
 }
 
 int adc_read(void) {
+    timer_waitMillis(10);
     unsigned int result;
 
     ADC0_PSSI_R = 0x0001;
 
     result = ADC0_SSFIFO0_R & 0xFFF;
+
 
     return result;
 }
