@@ -41,6 +41,8 @@ double verticalPos = 0;
 
 
 int turnStatus = 0;
+char buffer[200];
+
 void rotate_degrees(int angle/*global direction*/, int turnChange/*change in angle*/, oi_t *sensor_data){ //CCW is positive
     char buffer[200];
     int angleChange = turnChange/90;
@@ -96,7 +98,6 @@ void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data){
     }
 }
 void update_distance(double distance, int direction ){
-    char buffer[200];
     if(direction == 0){
         horizontalPos+=distance;
     }
@@ -128,7 +129,6 @@ void scan_cone(int low, int high, scan_info *scanData){
     int pingVal = 0;
     int adcVal = 0;
     int i =low;
-    char buffer[200] = "";
     sprintf(buffer, "SCAN %.0f %.0f %d\r\n", horizontalPos, verticalPos, directionGlobal);
 
                 uart_sendStr(buffer);
@@ -237,7 +237,6 @@ void scan_cone(int low, int high, scan_info *scanData){
 void avoidObject(oi_t *sensor_data, scan_info *scanData)
 {
 
-    char buffer[50];
     //update_distance(driveDist, direction);
     rotate_degrees(directionGlobal, 90, sensor_data);
 
@@ -326,8 +325,10 @@ void mowing_sequence(oi_t *sensor_data) {
 #define RIGHT 0
 #define LEFT 1
 #define cyBot_length 35
+//    char buffer[200];
     scan_info scanData;
     int turn_dir = RIGHT; // the next direction the bot has to turn after encountering tape
+    int final_row = 0; // bool to keep track if cyBot is on the last row of mowing
 
     while (1) {
         scan_cone(45,135, &scanData);
@@ -336,33 +337,93 @@ void mowing_sequence(oi_t *sensor_data) {
         int driveDist = fmin(200, scanData.averagePing);
         update_distance(driveDist, directionGlobal);
 
+        oi_update(sensor_data);
+        double distance_before = sensor_data->distance;
+
         int status = move_scan(sensor_data, driveDist, 60, 120);
+
+        oi_update(sensor_data);
+        double distance_moved = sensor_data->distance - distance_before;
+        update_distance(distance_moved, directionGlobal);
+
+        sprintf(buffer, "MOVE %.0f %.0f %d %.0f\r\n", horizontalPos, verticalPos, directionGlobal, distance_moved);
+        uart_sendStr(buffer);
+
+
         if(status == OBJECT){
 
             scan_cone(45,135, &scanData);
         }
 
-        if (status == BOUNDARY) { // if white tape found, start new row
-
+        if (status == BOUNDARY && !final_row) // if white tape found, start new row
+        {
             if (turn_dir == RIGHT) {
                 lcd_printf("found bound");
-                turn_clockwise(sensor_data, 90);
+//                turn_clockwise(sensor_data, 90);
+
+                int lastDirection = directionGlobal;
+                rotate_degrees(directionGlobal, -90, sensor_data); // clockwise
+                sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
+                uart_sendStr(buffer);
+
+                oi_update(sensor_data);
+                distance_before = sensor_data->distance;
+
                 status = move_scan(sensor_data, cyBot_length, 60, 120);
-                // TODO handle hitting tape (on final turn)
-                turn_clockwise(sensor_data, 90);
+
+                oi_update(sensor_data);
+                distance_moved = sensor_data->distance - distance_before;
+                update_distance(distance_moved, directionGlobal);
+
+                sprintf(buffer, "MOVE %.0f %.0f %d %.0f\r\n", horizontalPos, verticalPos, directionGlobal, distance_moved);
+                uart_sendStr(buffer);
+
+
+                if (status == BOUNDARY) {
+                    final_row = 1;
+                }
+                lastDirection = directionGlobal;
+                rotate_degrees(directionGlobal, -90, sensor_data); // clockwise
+                sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
+                uart_sendStr(buffer);
                 turn_dir = LEFT;
             }
             else { // turn_dir == LEFT
                 lcd_printf("found bound");
-                turn_counterclockwise(sensor_data, 90);
+                int lastDirection = directionGlobal;
+                rotate_degrees(directionGlobal, 90, sensor_data); // counterclockwise
+                sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
+                uart_sendStr(buffer);
+                oi_update(sensor_data);
+                distance_before = sensor_data->distance;
+
                 status = move_scan(sensor_data, cyBot_length, 60, 120);
-                // TODO handle hitting tape (on final turn)
-                turn_counterclockwise(sensor_data, 90);
+
+                oi_update(sensor_data);
+                distance_moved = sensor_data->distance - distance_before;
+                update_distance(distance_moved, directionGlobal);
+
+                sprintf(buffer, "MOVE %.0f %.0f %d %.0f\r\n", horizontalPos, verticalPos, directionGlobal, distance_moved);
+                uart_sendStr(buffer);
+                if (status == BOUNDARY) {
+                                    final_row = 1;
+                                }
+                lastDirection = directionGlobal;
+                rotate_degrees(directionGlobal, 90, sensor_data); // counterclockwise
+                sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
+                uart_sendStr(buffer);
                 turn_dir = RIGHT;
             }
         }
+        else if (status == BOUNDARY && final_row) // final tape is found, mowing complete
+        {
+            break;
+        }
     }
+    lcd_printf("mowing finished");
+    while(1);
 }
+
 
 int main(void)
 {
@@ -378,7 +439,6 @@ int main(void)
     oi_t *sensor_data = oi_alloc();
     oi_init(sensor_data);
 
-    char buffer[200];
     scan_info scanData;
     scanData.averageAdc = 0;
     scanData.averagePing = 0;
@@ -533,6 +593,7 @@ int main(void)
             //verticalSpan += sensor_data->distance;
         }
     }
+    mowing_sequence(sensor_data);
 
         }}
     oi_free(sensor_data);
