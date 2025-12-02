@@ -6,12 +6,12 @@ import math
 # Configuration
 HOST = "192.168.1.1" 
 PORT = 288
-CANVAS_W = 900
-CANVAS_H = 600
-SCALE = 1.5 # pixels per cm
+CANVAS_W = 1000
+CANVAS_H = 800
+SCALE = 1 # pixels per cm
 GRID_SIZE = 50 # cm
-MAX_X_CM = 450 # max horizontal
-MAX_Y_CM = 300 # max vertical
+MAX_X_CM = 800 # max horizontal
+MAX_Y_CM = 600 # max vertical
 OFFSET = 17.5 # Bot radius
 
 class CyBotGUI:
@@ -94,7 +94,7 @@ class CyBotGUI:
 
         # Convert to screen coords
         x0, y0 = self.to_screen(0, 0)
-        x1, y1 = self.to_screen(self.horizontal_edge, self.vertical_edge)
+        x1, y1 = self.to_screen(self.horizontal_edge+OFFSET*2, self.vertical_edge+OFFSET*2)
 
         # Draw new rectangle
         self.boundary_rect = self.canvas.create_rectangle(
@@ -170,13 +170,23 @@ class CyBotGUI:
             elif cmd == "ENDSCAN":
                 self.scanning = False
                 self.draw_scan()
-            elif CMD == "EDGE":
-                if (parts[1] == "VERTICAL"):
-                    self.vertical_edge = float(parts[2])
-                    self.log(f"Vertical edge set: {length} cm")
-                elif (parts[1] == "HORIZONTAL"):
-                    self.horizontal_edge = float(parts[2])
+            elif cmd == "EDGE":
+                # Format: EDGE HORIZONTAL 600  OR  EDGE VERTICAL 400
+                if len(parts) < 3:
+                    return
+
+                edge_type = parts[1].upper()
+                length = float(parts[2])
+
+                if edge_type == "HORIZONTAL":
+                    self.horizontal_edge = length
                     self.log(f"Horizontal edge set: {length} cm")
+
+                elif edge_type == "VERTICAL":
+                    self.vertical_edge = length
+                    self.log(f"Vertical edge set: {length} cm")
+
+                # Now try to draw rectangle if both are known
                 self.try_draw_boundary()
                     
                 

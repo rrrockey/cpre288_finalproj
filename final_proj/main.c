@@ -129,6 +129,9 @@ void scan_cone(int low, int high, scan_info *scanData){
     int adcVal = 0;
     int i =low;
     char buffer[200] = "";
+    sprintf(buffer, "SCAN %.0f %.0f %d\r\n", horizontalPos, verticalPos, directionGlobal);
+
+                uart_sendStr(buffer);
     for(i =low; i<high; i+=2){
         servo_move(i);
         adcVal = adc_read();
@@ -426,9 +429,9 @@ int main(void)
         else if (c == 'h')
         {
 
-            sprintf(buffer, "SCAN %.0f %.0f %d\r\n", horizontalPos, verticalPos, directionGlobal);
-            lcd_printf(buffer);
-            uart_sendStr(buffer);
+            //sprintf(buffer, "SCAN %.0f %.0f %d\r\n", horizontalPos, verticalPos, directionGlobal);
+           // lcd_printf(buffer);
+           // uart_sendStr(buffer);
             scan_cone(0, 180, &scanData);
         }
         else if (c == 'm')
@@ -474,10 +477,17 @@ int main(void)
 //         estimation = 0.0000228813 * (IR_val * IR_val) - 0.0981288 * IR_val + 115.33455;
         lcd_printf("%d, %.2f, %d, %d", scanData.averagePing, scanData.averageAdc, sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
         servo_move(90);
-        int driveDist = fmin(200, scanData.averagePing);
-        update_distance(driveDist, directionGlobal);
+        double startDistance = 0;
+        double distanceChange;
+        oi_update(sensor_data);
+        startDistance = sensor_data->distance;
 
+        int driveDist = fmin(200, scanData.averagePing);
         int status = move_scan(sensor_data, driveDist, 60, 120);
+        oi_update(sensor_data);
+        distanceChange = sensor_data->distance - startDistance;
+        distanceChange *=10;
+        update_distance(distanceChange, directionGlobal);
         if(OBJECT == status){
 
             scan_cone(45,135, &scanData);
@@ -495,7 +505,7 @@ int main(void)
 
                 turnStatus = 1;
                 rotate_degrees(directionGlobal, 90, sensor_data);
-                sprintf(buffer, "EDGE HORIZONTAL %.0f", horizontalPos);
+                sprintf(buffer, "EDGE HORIZONTAL %.0f\r\n", horizontalPos);
                 uart_sendStr(buffer);
 
                 sensor_data->distance = 0;
@@ -504,7 +514,7 @@ int main(void)
             else
             {
                 rotate_degrees(directionGlobal, 180, sensor_data);
-                sprintf(buffer, "EDGE VERTICAL %.0f", verticalPos);
+                sprintf(buffer, "EDGE VERTICAL %.0f\r\n", verticalPos);
                 uart_sendStr(buffer);
 
                 stop = 1;
