@@ -28,6 +28,9 @@ typedef struct {
     double pingWidth;
     double driveDist;
     double averageAngle;
+//    double driveDistHorizontal;
+//    double driveDistVertical;
+
 
 
 
@@ -106,13 +109,13 @@ void update_distance(double distance, int direction ){
     if(direction == 0){
         horizontalPos+=distance;
     }
-    else if(direction ==1){
+    else if(direction == 1){
         verticalPos+=distance;
     }
-    else if(direction ==2){
+    else if(direction == 2){
             horizontalPos-=distance;
         }
-        else if(direction ==3){
+        else if(direction == 3){
             verticalPos-=distance;
         }
     sprintf(buffer, "MOVE %.0f %.0f %d %.0f\r\n", horizontalPos, verticalPos, direction, distance);
@@ -167,12 +170,14 @@ void scan_cone(int low, int high, scan_info *scanData){
     }
     averageAngle /= pingTickAmnt;
     scanData->averageAngle = averageAngle;
-    uart_sendStr("ENDSCAN\r\n");
+    sprintf(buffer, "ENDSCAN, average angle: %.2f \r\n", averageAngle);
+                   uart_sendStr(buffer);
+    //uart_sendStr("ENDSCAN");
 
     if(adcTickAmnt == 0 || pingTickAmnt == 0){
         sprintf(buffer, "No objects found!");
                uart_sendStr(buffer);
-        scanData->driveDist = 50 + scanData->adcWidth; //need to find a fix for this logic, current just a hard patched 15 cm + the adcWidth (12/1)
+//        scanData->driveDist = 50 + scanData->adcWidth; //need to find a fix for this logic, current just a hard patched 15 cm + the adcWidth (12/1)
         scanData->averageAdc = 200;
         scanData->averagePing = 200;
 
@@ -257,7 +262,7 @@ void scan_cone(int low, int high, scan_info *scanData){
 
 void avoidObject(oi_t *sensor_data, scan_info *scanData)
 {
-    int check = 0;
+    int check = -1;
 
     //update_distance(driveDist, direction);
     rotate_degrees(directionGlobal, 90, sensor_data);
@@ -277,6 +282,15 @@ while(check != BOUNDARY){
     lcd_printf("%.2f, %.2f", scanData->driveDist, scanData->averageAngle);
     check = move_forward(sensor_data, scanData->driveDist *.75); // - scanData->averageAdc); //sideways
     if(check == BOUNDARY){continue;}
+    else if(check == CLIFF || check == BUMP){
+            check = -1;
+            move_backward(sensor_data, 10);
+            scanData->driveDist = 50;
+            avoidObject(sensor_data, scanData);
+            sprintf(buffer, "cliff sensor hit");
+            uart_sendStr(buffer);
+        }
+
     update_distance(scanData->driveDist / 2, directionGlobal);
     rotate_degrees(directionGlobal, -90, sensor_data);
 
@@ -290,6 +304,15 @@ while(check != BOUNDARY){
     lcd_printf("%.2f, %.2f", scanData->driveDist, scanData->averageAngle);
     check = move_forward(sensor_data, scanData->driveDist ); //straight
     if(check == BOUNDARY){continue;}
+    else if(check == CLIFF || check == BUMP){
+            check = -1;
+            move_backward(sensor_data, 10);
+            scanData->driveDist = 50;
+            avoidObject(sensor_data, scanData);
+            sprintf(buffer, "cliff sensor hit");
+            uart_sendStr(buffer);
+        }
+
     update_distance(scanData->driveDist, directionGlobal);
     rotate_degrees(directionGlobal, -90, sensor_data);
 
@@ -302,6 +325,15 @@ while(check != BOUNDARY){
     lcd_printf("%.2f, %.2f", scanData->driveDist, scanData->averageAngle);
     check = move_forward(sensor_data, scanData->driveDist); //straight
     if(check == BOUNDARY){continue;}
+    else if(check == CLIFF || check == BUMP){
+            check = -1;
+            move_backward(sensor_data, 10);
+            scanData->driveDist = 50;
+            avoidObject(sensor_data, scanData);
+            sprintf(buffer, "cliff sensor hit");
+            uart_sendStr(buffer);
+        }
+
 
     break;
 }
@@ -609,10 +641,12 @@ int main(void)
                 stop = 1;
             }
         }
-        else if (status == CLIFF)
-        {
-            stop = 1;
-        }
+        else if(status == CLIFF || status == BUMP){
+
+                    status = -1;
+                    move_backward(sensor_data, 15);
+                    avoidObject(sensor_data, &scanData);
+                }
         if (!turnStatus)
         {
             //horizontalSpan += sensor_data->distance;
