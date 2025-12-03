@@ -29,15 +29,12 @@ typedef struct {
     double pingWidth;
     double driveDist;
     double averageAngle;
-<<<<<<< HEAD
-=======
+
 //    double driveDistHorizontal;
 //    double driveDistVertical;
 
 
 
-
->>>>>>> main
 } scan_info;
 
 
@@ -515,7 +512,8 @@ int main(void)
     scanData.averageAdc = 0;
     scanData.averagePing = 0;
     scanData.pingWidth = 0;
-    scanData.adcWidth =0;
+    scanData.adcWidth = 0;
+    scanData.driveDist = 0;
 
     move_scan_t moveScanData;
     moveScanData.distanceTraveled = 0;

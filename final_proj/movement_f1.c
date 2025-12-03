@@ -162,11 +162,8 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
     printf("Moved forward: %.2f mm\n", distanceTraveled);
 #endif
 
-<<<<<<< HEAD
     return;
-=======
-    return -1;
->>>>>>> main
+
 }
 
 double move_to_bounds(oi_t *sensor_data){
