@@ -7,8 +7,8 @@
 
 
 #define PERIOD_TICKS 320000  // 20 ms period @ 16 MHz
-#define SERVO_0DEG_PULSE (320000-312550)   // 1.0 ms high pulse
-#define SERVO_180DEG_PULSE (320000-284666) // 2.0 ms high pulse
+#define SERVO_0DEG_PULSE (320000-311621)   // 1.0 ms high pulse
+#define SERVO_180DEG_PULSE (320000-285441) // 2.0 ms high pulse
 #define SERVO_RANGE (SERVO_180DEG_PULSE - SERVO_0DEG_PULSE)
 
 // Initializes Timer1B to generate PWM on PB5
