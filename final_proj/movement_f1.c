@@ -103,8 +103,10 @@ int trace_hole(oi_t *sensor_data)
 }
 
 
-int move_scan(oi_t *sensor_data, int cm, float low_angle, float high_angle)
+void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_angle, float high_angle)
 {
+    moveScanData->status = CLEAR;
+    moveScanData->distanceTraveled = 0;
     double distanceTraveled = 0;
     oi_setWheels(125, 125);
     float current_angle = low_angle;
@@ -118,25 +120,24 @@ int move_scan(oi_t *sensor_data, int cm, float low_angle, float high_angle)
         {
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
-            return BUMP;
+            moveScanData->status = BUMP;
+            break;
         }
         if (sensor_data->cliffFrontLeftSignal > 2500
                 || sensor_data->cliffFrontRightSignal > 2500)
         {
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
-            return BOUNDARY;
+            moveScanData->status = BOUNDARY;
+            break;
         }
         if (sensor_data->cliffFrontLeftSignal < 50
                 || sensor_data->cliffFrontRightSignal < 50)
         {
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
-            return CLIFF;
-        }
-        else
-        {
-
+            moveScanData->status = CLIFF;
+            break;
         }
         current_angle+= 5;
         if(current_angle > high_angle) current_angle = low_angle;
@@ -146,7 +147,8 @@ int move_scan(oi_t *sensor_data, int cm, float low_angle, float high_angle)
         if(estimation < 25){
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
-            return OBJECT;
+            moveScanData->status = OBJECT;
+            break;
         }
         distanceTraveled += sensor_data->distance;
 
@@ -154,12 +156,13 @@ int move_scan(oi_t *sensor_data, int cm, float low_angle, float high_angle)
 
     oi_setWheels(0, 0);
     timer_waitMillis(300);
+    moveScanData->distanceTraveled = distanceTraveled / 10; // get cm
 
 #if DEBUG
     printf("Moved forward: %.2f mm\n", distanceTraveled);
 #endif
 
-    return distanceTraveled;
+    return;
 }
 
 double move_to_bounds(oi_t *sensor_data){

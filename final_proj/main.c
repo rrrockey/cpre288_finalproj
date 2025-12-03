@@ -21,6 +21,7 @@ typedef struct {
     double ping_distance;
     double width;
 } object_t;
+
 typedef struct {
     int averagePing;
     double averageAdc;
@@ -28,10 +29,10 @@ typedef struct {
     double pingWidth;
     double driveDist;
     double averageAngle;
-
-
-
 } scan_info;
+
+
+
 int directionGlobal = 0; //0,1,2,3 for NWSE: starts at 0 for positive X
 double horizontalPos = 0;
 double verticalPos = 0;
@@ -170,13 +171,13 @@ void scan_cone(int low, int high, scan_info *scanData){
     uart_sendStr("ENDSCAN\r\n");
 
     if(adcTickAmnt == 0 || pingTickAmnt == 0){
-        sprintf(buffer, "No objects found!");
+        sprintf(buffer, "No objects found!\r\n");
                uart_sendStr(buffer);
         scanData->driveDist = 50 + scanData->adcWidth; //need to find a fix for this logic, current just a hard patched 15 cm + the adcWidth (12/1)
         scanData->averageAdc = 200;
         scanData->averagePing = 200;
 
-        sprintf(buffer, "no object found:  average width: %.2f, drive dist %.2f, object count: %d \r\n", scanData->adcWidth, scanData->driveDist, adcTickAmnt);
+        sprintf(buffer, "no object found:  \r\naverage width: %.2f, \r\ndrive dist %.2f, \r\nobject count: %d \r\n", scanData->adcWidth, scanData->driveDist, adcTickAmnt);
             uart_sendStr(buffer);
         return;
     }
@@ -211,7 +212,6 @@ void scan_cone(int low, int high, scan_info *scanData){
             else
             {
                 scanData->driveDist = 35 + 11 + scanData->averageAdc;
-
             }
 
         }
@@ -361,7 +361,7 @@ while(check != BOUNDARY){
 
 }
 
-void mowing_sequence(oi_t *sensor_data) {
+void mowing_sequence(oi_t *sensor_data, move_scan_t *moveScanData) {
 #define RIGHT 0
 #define LEFT 1
 #define cyBot_length 35
@@ -374,16 +374,17 @@ void mowing_sequence(oi_t *sensor_data) {
         scan_cone(45,135, &scanData);
         lcd_printf("%d, %.2f, %d, %d", scanData.averagePing, scanData.averageAdc, sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
         servo_move(90);
-        int driveDist = fmin(200, scanData.averagePing);
-        update_distance(driveDist, directionGlobal);
+        int driveDist = 50;
 
-        oi_update(sensor_data);
-        double distance_before = sensor_data->distance;
+//        oi_update(sensor_data);
+//        double distance_before = sensor_data->distance;
 
-        int status = move_scan(sensor_data, driveDist, 45, 135);
+        move_scan(sensor_data, moveScanData, driveDist, 45, 135);
+        int status = moveScanData->status;
 
-        oi_update(sensor_data);
-        double distance_moved = sensor_data->distance - distance_before;
+//        oi_update(sensor_data);
+//        double distance_moved = sensor_data->distance - distance_before;
+        double distance_moved = moveScanData->distanceTraveled;
         update_distance(distance_moved, directionGlobal);
 
 
@@ -405,14 +406,12 @@ void mowing_sequence(oi_t *sensor_data) {
                 sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
                 uart_sendStr(buffer);
 
-                oi_update(sensor_data);
-                distance_before = sensor_data->distance;
+                move_scan(sensor_data, moveScanData, cyBot_length, 45, 135);
+                int status = moveScanData->status;
 
-                status = move_scan(sensor_data, cyBot_length, 45, 135);
-
-                oi_update(sensor_data);
-                distance_moved = sensor_data->distance - distance_before;
+                double distance_moved = moveScanData->distanceTraveled;
                 update_distance(distance_moved, directionGlobal);
+
 
 
 
@@ -431,19 +430,18 @@ void mowing_sequence(oi_t *sensor_data) {
                 rotate_degrees(directionGlobal, 90, sensor_data); // counterclockwise
                 sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
                 uart_sendStr(buffer);
-                oi_update(sensor_data);
-                distance_before = sensor_data->distance;
 
-                status = move_scan(sensor_data, cyBot_length, 45, 135);
 
-                oi_update(sensor_data);
-                distance_moved = sensor_data->distance - distance_before;
+                move_scan(sensor_data, moveScanData, cyBot_length, 45, 135);
+                int status = moveScanData->status;
+
+                double distance_moved = moveScanData->distanceTraveled;
                 update_distance(distance_moved, directionGlobal);
 
 
                 if (status == BOUNDARY) {
-                                    final_row = 1;
-                                }
+                    final_row = 1;
+                }
                 lastDirection = directionGlobal;
                 rotate_degrees(directionGlobal, 90, sensor_data); // counterclockwise
                 sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
@@ -481,6 +479,10 @@ int main(void)
     scanData.pingWidth = 0;
     scanData.adcWidth =0;
 
+    move_scan_t moveScanData;
+    moveScanData.distanceTraveled = 0;
+    moveScanData.status = CLEAR;
+
     int stop = 0;
     int lastDirection;
     double horizontalSpan = 0;
@@ -494,8 +496,33 @@ int main(void)
         int moveStatus = 0;
         if (c == 'w')
         {
-            move_forward(sensor_data, 50);
-            update_distance(50, directionGlobal);
+//            move_forward(sensor_data, 50);
+//            update_distance(50, directionGlobal);
+
+
+            /*DELTE BELOW*/
+
+            move_scan(sensor_data, &moveScanData, 50, 45, 135);
+            int status = moveScanData.status;
+
+            double distance_moved = moveScanData.distanceTraveled;
+//            update_distance(distance_moved, directionGlobal);
+
+            char buffer[100];
+            sprintf(buffer, "distance traveled: %.2f\r\n", distance_moved);
+            uart_sendStr(buffer);
+            sprintf(buffer, "object encountered: %d\r\n", status);
+            uart_sendStr(buffer);
+
+            /*DELETE ABOVE*/
+
+
+
+
+
+
+
+
         }
         else if (c == 'a')
         {
@@ -562,14 +589,11 @@ int main(void)
         servo_move(90);
         double startDistance = 0;
         double distanceChange;
-        oi_update(sensor_data);
-        startDistance = sensor_data->distance;
 
         int driveDist = fmin(200, scanData.averagePing);
-        int status = move_scan(sensor_data, driveDist, 45, 135);
-        oi_update(sensor_data);
-        distanceChange = sensor_data->distance - startDistance;
-        distanceChange *= 10;
+        move_scan(sensor_data, &moveScanData, driveDist, 45, 135);
+        int status = moveScanData.status;
+        distanceChange = moveScanData.distanceTraveled;
         update_distance(distanceChange, directionGlobal);
         if(OBJECT == status){
 
@@ -622,7 +646,7 @@ int main(void)
             //verticalSpan += sensor_data->distance;
         }
     }
-    mowing_sequence(sensor_data);
+    mowing_sequence(sensor_data, &moveScanData);
 
         }
     }
