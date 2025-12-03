@@ -27,6 +27,7 @@ typedef struct {
     double adcWidth;
     double pingWidth;
     double driveDist;
+    double averageAngle;
 
 
 
@@ -130,6 +131,7 @@ void scan_cone(int low, int high, scan_info *scanData){
     double pingWidth = 0;
     double adcWidth = 0;
     double estimation = 0;
+    double averageAngle = 0;
     int pingVal = 0;
     int adcVal = 0;
     int i =low;
@@ -153,6 +155,8 @@ void scan_cone(int low, int high, scan_info *scanData){
         if(pingVal < 25){
             pingTickAmnt++;
             averagePing+= pingVal;
+            averageAngle+=i;
+
         }
 
         sprintf(buffer, "DATA %d, %.0f, %d\r\n", i, estimation, pingVal);
@@ -161,6 +165,8 @@ void scan_cone(int low, int high, scan_info *scanData){
 
 
     }
+    averageAngle /= pingTickAmnt;
+    scanData->averageAngle = averageAngle;
     uart_sendStr("ENDSCAN\r\n");
 
     if(adcTickAmnt == 0 || pingTickAmnt == 0){
@@ -176,18 +182,23 @@ void scan_cone(int low, int high, scan_info *scanData){
     }
     averageADC = averageADC / ((double)(adcTickAmnt));
     averagePing = averagePing/pingTickAmnt;
+
     sprintf(buffer, "Final output:  average: %.2f, drive dist %.2f, object count: %d \r\n", averageADC, scanData->driveDist, adcTickAmnt);
         uart_sendStr(buffer);
+
     lcd_printf("%.2f, %d", averageADC, adcTickAmnt);
     scanData->averageAdc = averageADC;
     scanData->averagePing = averagePing;
+
      adcRad = (adcTickAmnt) * (3.14 / 180.0);
     adcWidth = 2 * averageADC * tan(adcRad / 2.0);
 
     pingRad = (pingTickAmnt) * (3.14 / 180.0);
     pingWidth = 2 *averagePing * tan(pingRad / 2.0);
+
     scanData->adcWidth = adcWidth;
     scanData->pingWidth = pingWidth;
+
     if (adcTickAmnt > 0)
     {
         if (scanData->averageAdc < 10)
@@ -246,22 +257,26 @@ void scan_cone(int low, int high, scan_info *scanData){
 
 void avoidObject(oi_t *sensor_data, scan_info *scanData)
 {
+    int check = 0;
 
     //update_distance(driveDist, direction);
     rotate_degrees(directionGlobal, 90, sensor_data);
-
-
     scan_cone(45, 135, scanData);
 
+while(check != BOUNDARY){
 
     sprintf(buffer, "adcValue in recursion: %.2f", scanData->averageAdc);
+
     uart_sendStr(buffer);
+
     if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist/2)
     {
         avoidObject(sensor_data, scanData);
     }
-  //  move_forward(sensor_data, scanData->driveDist);
-    move_forward(sensor_data, scanData->driveDist / 2); // - scanData->averageAdc); //sideways
+    scanData->driveDist = (scanData->driveDist) * (.85 + ((scanData->averageAngle - 45) *.3) / 90);
+    lcd_printf("%.2f, %.2f", scanData->driveDist, scanData->averageAngle);
+    check = move_forward(sensor_data, scanData->driveDist *.75); // - scanData->averageAdc); //sideways
+    if(check == BOUNDARY){continue;}
     update_distance(scanData->driveDist / 2, directionGlobal);
     rotate_degrees(directionGlobal, -90, sensor_data);
 
@@ -271,22 +286,29 @@ void avoidObject(oi_t *sensor_data, scan_info *scanData)
     {
         avoidObject(sensor_data, scanData);
     }
-    move_forward(sensor_data, scanData->driveDist ); //straight
+    scanData->driveDist = (scanData->driveDist) * (.85 + ((scanData->averageAngle - 45) *.3) / 90);
+    lcd_printf("%.2f, %.2f", scanData->driveDist, scanData->averageAngle);
+    check = move_forward(sensor_data, scanData->driveDist ); //straight
+    if(check == BOUNDARY){continue;}
     update_distance(scanData->driveDist, directionGlobal);
-//    rotate_degrees(directionGlobal, -90, sensor_data);
-//
-//    scan_cone(45, 135, scanData);
-//    if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist/2)
-//    {
-//        avoidObject(sensor_data, scanData);
-//    }
+    rotate_degrees(directionGlobal, -90, sensor_data);
 
+    scan_cone(45, 135, scanData);
+    if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist/2)
+    {
+        avoidObject(sensor_data, scanData);
+    }
+    scanData->driveDist = (scanData->driveDist) * (.85 + ((scanData->averageAngle - 45) *.3) / 90);
+    lcd_printf("%.2f, %.2f", scanData->driveDist, scanData->averageAngle);
+    check = move_forward(sensor_data, scanData->driveDist); //straight
+    if(check == BOUNDARY){continue;}
 
-
+    break;
+}
+//when you finish recursion
 
     if (!turnStatus)
     {
-
         face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
     }
     else
@@ -295,9 +317,6 @@ void avoidObject(oi_t *sensor_data, scan_info *scanData)
         face_direction(directionGlobal, POSITIVE_X, sensor_data);
     }
 
-
-
-    int check = 0;
     while (check != BOUNDARY)
     {
         scan_cone(45, 135, scanData);
@@ -308,11 +327,19 @@ void avoidObject(oi_t *sensor_data, scan_info *scanData)
         else
         {
             check = move_forward(sensor_data, 25);
-            face_direction(directionGlobal, POSITIVE_X, sensor_data);
-
         }
 
     }
+
+    if (!turnStatus)
+       {
+            face_direction(directionGlobal, POSITIVE_X, sensor_data);
+       }
+       else
+       {
+            face_direction(directionGlobal, POSITIVE_Y, sensor_data);
+
+       }
     //move_forward(sensor_data, scanData->driveDist); //move TO THE WHITE TAPE
     //update_distance(scanData->driveDist, direction);
 
@@ -353,7 +380,7 @@ void mowing_sequence(oi_t *sensor_data) {
         oi_update(sensor_data);
         double distance_before = sensor_data->distance;
 
-        int status = move_scan(sensor_data, driveDist, 60, 120);
+        int status = move_scan(sensor_data, driveDist, 45, 135);
 
         oi_update(sensor_data);
         double distance_moved = sensor_data->distance - distance_before;
@@ -381,7 +408,7 @@ void mowing_sequence(oi_t *sensor_data) {
                 oi_update(sensor_data);
                 distance_before = sensor_data->distance;
 
-                status = move_scan(sensor_data, cyBot_length, 60, 120);
+                status = move_scan(sensor_data, cyBot_length, 45, 135);
 
                 oi_update(sensor_data);
                 distance_moved = sensor_data->distance - distance_before;
@@ -407,7 +434,7 @@ void mowing_sequence(oi_t *sensor_data) {
                 oi_update(sensor_data);
                 distance_before = sensor_data->distance;
 
-                status = move_scan(sensor_data, cyBot_length, 60, 120);
+                status = move_scan(sensor_data, cyBot_length, 45, 135);
 
                 oi_update(sensor_data);
                 distance_moved = sensor_data->distance - distance_before;
@@ -489,7 +516,7 @@ int main(void)
         {
             scan_cone(0, 180, &scanData);
         }
-        else if (c == 'm' || button == 1)
+        else if (c == 'm')
         {
 
             /*BEGIN TESTING MOWING SEQUENCE*/
@@ -539,10 +566,10 @@ int main(void)
         startDistance = sensor_data->distance;
 
         int driveDist = fmin(200, scanData.averagePing);
-        int status = move_scan(sensor_data, driveDist, 60, 120);
+        int status = move_scan(sensor_data, driveDist, 45, 135);
         oi_update(sensor_data);
         distanceChange = sensor_data->distance - startDistance;
-        distanceChange *=10;
+        distanceChange *= 10;
         update_distance(distanceChange, directionGlobal);
         if(OBJECT == status){
 

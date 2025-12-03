@@ -138,7 +138,7 @@ int move_scan(oi_t *sensor_data, int cm, float low_angle, float high_angle)
         {
 
         }
-        current_angle+= 2;
+        current_angle+= 5;
         if(current_angle > high_angle) current_angle = low_angle;
         servo_move(current_angle);
         IR_val = adc_read();
