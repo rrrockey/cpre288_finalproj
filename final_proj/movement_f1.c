@@ -111,7 +111,7 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
     moveScanData->status = CLEAR;
     moveScanData->distanceTraveled = 0;
     double distanceTraveled = 0;
-    oi_setWheels(125, 125);
+    oi_setWheels(75, 75);
     float current_angle = low_angle;
     int IR_val = 0;
     double estimation = 0;
