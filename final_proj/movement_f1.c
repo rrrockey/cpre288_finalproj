@@ -10,8 +10,10 @@ volatile double TURN_CORRECTION = 0.96;
 volatile double TURN_CORRECTION_180 = 0.955;
 char buffer[100];
 
-int move_forward(oi_t *sensor_data, int cm)
+void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm)
 {
+    moveScanData->status = CLEAR;
+    moveScanData->distanceTraveled = 0;
     double distanceTraveled = 0;
     oi_setWheels(200, 200);
 
@@ -23,21 +25,24 @@ int move_forward(oi_t *sensor_data, int cm)
         {
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
-            return BUMP;
+            moveScanData->status = BUMP;
+            break;
         }
         if (sensor_data->cliffFrontLeftSignal > 2500
                 || sensor_data->cliffFrontRightSignal > 2500)
         {
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
-            return BOUNDARY;
+            moveScanData->status = BOUNDARY;
+            break;
         }
         if (sensor_data->cliffFrontLeftSignal < 50
                 || sensor_data->cliffFrontRightSignal < 50)
         {
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
-            return CLIFF;
+            moveScanData->status = CLIFF;
+            break;
         }
         else
         {
@@ -54,7 +59,8 @@ int move_forward(oi_t *sensor_data, int cm)
     printf("Moved forward: %.2f mm\n", distanceTraveled);
 #endif
 
-    return distanceTraveled;
+    moveScanData->distanceTraveled = distanceTraveled / 10;
+    return;
 }
 
 
