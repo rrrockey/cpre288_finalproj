@@ -181,11 +181,9 @@ void scan_cone(int low, int high, scan_info *scanData){
     if(adcTickAmnt == 0 || pingTickAmnt == 0){
         sprintf(buffer, "No objects found!\r\n");
                uart_sendStr(buffer);
-<<<<<<< HEAD
-//        scanData->driveDist = 50 + scanData->adcWidth; //need to find a fix for this logic, current just a hard patched 15 cm + the adcWidth (12/1)
-=======
 
->>>>>>> josh
+//        scanData->driveDist = 50 + scanData->adcWidth; //need to find a fix for this logic, current just a hard patched 15 cm + the adcWidth (12/1)
+
         scanData->averageAdc = 200;
         scanData->averagePing = 200;
 
@@ -223,12 +221,10 @@ void scan_cone(int low, int high, scan_info *scanData){
             }
             else
             {
-<<<<<<< HEAD
-                scanData->driveDist = 35 + 11 + scanData->averageAdc;
-=======
+
 
                 pillarWidth = 17;
->>>>>>> josh
+
             }
 
         }
@@ -304,20 +300,19 @@ while(check != BOUNDARY){
     lcd_printf("%.2f, %.2f", scanData->driveDist, scanData->averageAngle);
     check = move_forward(sensor_data, scanData->driveDistHorizontal); // - scanData->averageAdc); //sideways
     if(check == BOUNDARY){continue;}
-<<<<<<< HEAD
+
     else if(check == CLIFF || check == BUMP){
             check = -1;
             move_backward(sensor_data, 10);
-            scanData->driveDist = 50;
+            scanData->driveDist = 50; // TODO: INTEGRATE WITH DRIVE DIST HORIZONTAL
             avoidObject(sensor_data, scanData);
             sprintf(buffer, "cliff sensor hit");
             uart_sendStr(buffer);
         }
 
-    update_distance(scanData->driveDist / 2, directionGlobal);
-=======
     update_distance(scanData->driveDistHorizontal, directionGlobal);
->>>>>>> josh
+//    update_distance(scanData->driveDist / 2, directionGlobal);
+
     rotate_degrees(directionGlobal, -90, sensor_data);
 
 
@@ -330,20 +325,19 @@ while(check != BOUNDARY){
     lcd_printf("%.2f, %.2f", scanData->driveDist, scanData->averageAngle);
     check = move_forward(sensor_data, scanData->driveDistVertical ); //straight
     if(check == BOUNDARY){continue;}
-<<<<<<< HEAD
+
     else if(check == CLIFF || check == BUMP){
             check = -1;
             move_backward(sensor_data, 10);
-            scanData->driveDist = 50;
+            scanData->driveDist = 50; // TODO INTEGRATE WITH DTIVE DIST VERTICAL
             avoidObject(sensor_data, scanData);
             sprintf(buffer, "cliff sensor hit");
             uart_sendStr(buffer);
         }
 
-    update_distance(scanData->driveDist, directionGlobal);
-=======
     update_distance(scanData->driveDistVertical, directionGlobal);
->>>>>>> josh
+//    update_distance(scanData->driveDist, directionGlobal);
+
     rotate_degrees(directionGlobal, -90, sensor_data);
 
     scan_cone(45, 135, scanData);
@@ -522,19 +516,17 @@ int main(void)
     scanData.averageAdc = 0;
     scanData.averagePing = 0;
     scanData.pingWidth = 0;
-<<<<<<< HEAD
-    scanData.adcWidth = 0;
-    scanData.driveDist = 0;
 
-    move_scan_t moveScanData;
-    moveScanData.distanceTraveled = 0;
-    moveScanData.status = CLEAR;
-=======
     scanData.adcWidth =0;
     scanData.driveDist = 0;
     scanData.driveDistHorizontal = 0;
     scanData.driveDistVertical = 0;
->>>>>>> josh
+
+
+    move_scan_t moveScanData;
+    moveScanData.distanceTraveled = 0;
+    moveScanData.status = CLEAR;
+
 
     int stop = 0;
     int lastDirection;
@@ -551,6 +543,30 @@ int main(void)
         {
 //            move_forward(sensor_data, 50);
 //            update_distance(50, directionGlobal);
+
+
+            /*DELTE BELOW*/
+
+            move_scan(sensor_data, &moveScanData, 50, 45, 135);
+            int status = moveScanData.status;
+
+            double distance_moved = moveScanData.distanceTraveled;
+//            update_distance(distance_moved, directionGlobal);
+
+            char buffer[100];
+            sprintf(buffer, "distance traveled: %.2f\r\n", distance_moved);
+            uart_sendStr(buffer);
+            sprintf(buffer, "object encountered: %d\r\n", status);
+            uart_sendStr(buffer);
+
+            /*DELETE ABOVE*/
+
+
+
+
+
+
+
 
         }
         else if (c == 'a')
@@ -572,18 +588,9 @@ int main(void)
         {
             scan_cone(0, 180, &scanData);
         }
-<<<<<<< HEAD
-        else if (c == 'z') // calibrate wheels
-        {
-            uart_sendStr("received z, calibrating...\r\n");
-            calibrate_turn(sensor_data);
-//            sprintf(buffer, "correction: %.2f\r\n", correction);
-//            uart_sendStr(buffer);
-=======
         else if (c == 'c')
         {
             servo_calibrate();
->>>>>>> josh
         }
         else if (c == 'm')
         {
