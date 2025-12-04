@@ -52,7 +52,7 @@ void rotate_degrees(int angle/*global direction*/, int turnChange/*change in ang
     int angleChange = turnChange/90;
     int startAngle = directionGlobal;
     if(angleChange>0){
-        angle+= angleChange;         //maybe problem?
+        angle+= angleChange;
         angle %=4;
         turn_counterclockwise(sensor_data, angleChange*90);
     }
@@ -79,12 +79,7 @@ void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data){
         return;
     }
 
-//    if(direction <0){
-//        direction+= 360;
-//    }
-//    else if(direction > 360){
-//        direction -= 360;
-//    }
+
     if(direction == -270){
         rotate_degrees(startDir, -1 * 90, sensor_data);
     }
@@ -145,7 +140,7 @@ void scan_cone(int low, int high, scan_info *scanData){
     for(i =low; i<high; i+=2){
         servo_move(i);
         adcVal = adc_read();
-//        estimation = 0.0000228813 * (adcVal * adcVal) - 0.0981288 * adcVal + 115.33455;
+
         estimation = 4150000 * pow(adcVal, -1.64);
         if(estimation < 25){
             sprintf(buffer, "Object hit at: %.2f, at angle %d \r\n", estimation,i);
@@ -179,7 +174,7 @@ void scan_cone(int low, int high, scan_info *scanData){
     if(adcTickAmnt == 0 || pingTickAmnt == 0){
         sprintf(buffer, "No objects found!");
                uart_sendStr(buffer);
-//        scanData->driveDist = 50 + scanData->adcWidth; //need to find a fix for this logic, current just a hard patched 15 cm + the adcWidth (12/1)
+
         scanData->averageAdc = 200;
         scanData->averagePing = 200;
 
@@ -212,12 +207,12 @@ void scan_cone(int low, int high, scan_info *scanData){
         {
             if (scanData->adcWidth > 7)   // check the values for bounds
             {
-//                scanData->driveDist = 17 + 35 + scanData->averageAdc;
+
                 pillarWidth = 23;
             }
             else
             {
-//                scanData->driveDist = 35 + 11 + scanData->averageAdc;
+
                 pillarWidth = 17;
             }
 
@@ -226,19 +221,19 @@ void scan_cone(int low, int high, scan_info *scanData){
         {
             if (scanData->adcWidth > 11)   // check the values for bounds
             {
-//                scanData->driveDist = 17 + 35 + scanData->averageAdc;
+
                 pillarWidth = 23;
 
             }
             else if (  scanData->adcWidth > 6)
             {
-//                scanData->driveDist = 35 + 11 + scanData->averageAdc;
+
                 pillarWidth = 17;
 
             }
             else if (scanData->adcWidth > 0)
             {
-//                scanData->driveDist = 35 + 5 + scanData->averageAdc;
+
                 pillarWidth = 11;
             }
         }
@@ -251,16 +246,16 @@ void scan_cone(int low, int high, scan_info *scanData){
     //handle driveDistHorizontal
     if(scanData->averageAngle >= 90){
         double tempAng = scanData->averageAngle - 180;
-        sprintf(buffer, "averageADC %.2f  cos (tempAng)%.2f tempAng %.2f pillar width %d\r\n", (scanData->averageAdc), cos(tempAng* M_PI / 180.0), tempAng, pillarWidth);
+        sprintf(buffer, "averageADC %.2f  cos (tempAng)%.2f tempAng %.2f pillar width %d\r\n", (scanData->averageAdc), cos(tempAng * M_PI / 180.0), tempAng, pillarWidth);
         uart_sendStr(buffer);
-        scanData->driveDistHorizontal = (scanData->averageAdc)* cos(tempAng * M_PI / 180.0) + pillarWidth + (cybotLength / 2);
+        scanData->driveDistHorizontal = (scanData->averageAdc) * cos(tempAng * M_PI / 180.0) + pillarWidth * cos(tempAng * M_PI / 180.0) + (cybotLength / 2);
     }
     else{
         double tempAng = scanData->averageAngle - 135;
-        scanData->driveDistHorizontal = pillarWidth + (cybotLength / 4);
+        scanData->driveDistHorizontal = pillarWidth * cos(tempAng * M_PI / 180.0) + (cybotLength / 4);
     }
 
-    scanData->driveDistVertical = (scanData->averageAdc)*sin(scanData->averageAngle * M_PI / 180.0) + pillarWidth + (cybotLength / 2);
+    scanData->driveDistVertical = (scanData->averageAdc)*sin(scanData->averageAngle * M_PI / 180.0) + pillarWidth + (cybotLength / 1.5);
 
 
     sprintf(buffer, "Final output:  average: %.2f, drive dist Hori %.2f, drive dist Vert %.2f,  pillar Width: %d \r\n", averageADC, scanData->driveDistHorizontal, scanData->driveDistVertical, pillarWidth);
@@ -268,14 +263,7 @@ void scan_cone(int low, int high, scan_info *scanData){
 
 
     lcd_printf("adc width: %.2f\r\n ping width: %/2f\r\n", adcWidth, pingWidth);
-//    if(adcTickAmnt > 0){
-//        return;
-//    }
-//    else{
-//        scanData->averageAdc = 100;
-//                scanData->averagePing = 100;
-//                return;
-//    }
+
 
 }
 
@@ -364,24 +352,7 @@ while(check != BOUNDARY){
             face_direction(directionGlobal, POSITIVE_Y, sensor_data);
 
        }
-    //move_forward(sensor_data, scanData->driveDist); //move TO THE WHITE TAPE
-    //update_distance(scanData->driveDist, direction);
 
-
-
-
-
-//    }
-
-
-
-
-
-
-
-
-
-    //drive forward
 
 }
 
