@@ -6,6 +6,10 @@
 #include "servo.h"
 #include "adc.h"
 
+
+#define WHITETAPE 2650
+#define BLACKTAPE 100
+
 volatile double TURN_CORRECTION = 0.96;
 volatile double TURN_CORRECTION_180 = 0.955;
 char buffer[100];
@@ -28,16 +32,16 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm)
             moveScanData->status = BUMP;
             break;
         }
-        if (sensor_data->cliffFrontLeftSignal > 2500
-                || sensor_data->cliffFrontRightSignal > 2500)
+        if (sensor_data->cliffFrontLeftSignal > WHITETAPE
+                || sensor_data->cliffFrontRightSignal > WHITETAPE)
         {
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
             moveScanData->status = BOUNDARY;
             break;
         }
-        if (sensor_data->cliffFrontLeftSignal < 50
-                || sensor_data->cliffFrontRightSignal < 50)
+        if (sensor_data->cliffFrontLeftSignal < BLACKTAPE
+                || sensor_data->cliffFrontRightSignal < BLACKTAPE)
         {
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
@@ -79,15 +83,15 @@ int trace_hole(oi_t *sensor_data)
             distanceTraveled += sensor_data->distance;
             return BUMP;
         }
-        if (sensor_data->cliffFrontLeftSignal > 2500
-                || sensor_data->cliffFrontRightSignal > 2500)
+        if (sensor_data->cliffFrontLeftSignal > WHITETAPE
+                || sensor_data->cliffFrontRightSignal > WHITETAPE)
         {
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
             return BOUNDARY;
         }
-        if (sensor_data->cliffLeftSignal >= 100
-                && sensor_data->cliffRightSignal >= 100)
+        if (sensor_data->cliffLeftSignal >= BLACKTAPE
+                && sensor_data->cliffRightSignal >= BLACKTAPE)
         {
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
@@ -132,16 +136,16 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
             moveScanData->status = BUMP;
             break;
         }
-        if (sensor_data->cliffFrontLeftSignal > 2500
-                || sensor_data->cliffFrontRightSignal > 2500)
+        if (sensor_data->cliffFrontLeftSignal > WHITETAPE
+                || sensor_data->cliffFrontRightSignal > WHITETAPE)
         {
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
             moveScanData->status = BOUNDARY;
             break;
         }
-        if (sensor_data->cliffFrontLeftSignal < 50
-                || sensor_data->cliffFrontRightSignal < 50)
+        if (sensor_data->cliffFrontLeftSignal < BLACKTAPE
+                || sensor_data->cliffFrontRightSignal < BLACKTAPE)
         {
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
@@ -178,7 +182,7 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
 double move_to_bounds(oi_t *sensor_data){
     double dist =0;
     oi_setWheels(200, 200);
-    while(sensor_data->cliffFrontLeftSignal < 2500 || sensor_data->cliffFrontRightSignal < 2500){
+    while(sensor_data->cliffFrontLeftSignal < WHITETAPE || sensor_data->cliffFrontRightSignal < WHITETAPE){
 
         oi_setWheels(0, 0);
         return dist;
