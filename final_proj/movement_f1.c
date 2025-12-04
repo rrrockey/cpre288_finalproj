@@ -6,6 +6,9 @@
 #include "servo.h"
 #include "adc.h"
 
+volatile double TURN_CORRECTION = 0.96;
+volatile double TURN_CORRECTION_180 = 0.955;
+char buffer[100];
 
 int move_forward(oi_t *sensor_data, int cm)
 {
@@ -215,8 +218,17 @@ double move_backward(oi_t *sensor_data, int cm) {
 
 
 void turn_clockwise(oi_t *sensor_data, int degrees) {
+    sprintf(buffer, "moving clockwise %.2f \r\n", TURN_CORRECTION);
+    uart_sendStr(buffer);
+
+    if (degrees == 180) {
+        degrees *= TURN_CORRECTION_180;
+    }
+    else {
+        degrees *= TURN_CORRECTION;
+    }
+
     double angleTurned = 0;
-    degrees *= TURN_CORRECTION;
     oi_setWheels(-50, 50);
 
     while (angleTurned > -degrees) {
@@ -229,8 +241,14 @@ void turn_clockwise(oi_t *sensor_data, int degrees) {
 }
 
 void turn_counterclockwise(oi_t *sensor_data, int degrees) {
+    if (degrees == 180) {
+        degrees *= TURN_CORRECTION_180;
+    }
+    else {
+        degrees *= TURN_CORRECTION;
+    }
+
     double angleTurned = 0;
-    degrees *= TURN_CORRECTION;
     oi_setWheels(50, -50);
 
     while (angleTurned < degrees) {
@@ -241,3 +259,23 @@ void turn_counterclockwise(oi_t *sensor_data, int degrees) {
     oi_setWheels(0, 0);
     timer_waitMillis(300);
 }
+
+void calibrate_turn(oi_t *sensor_data) {
+    sprintf(buffer, "Enter TURN_CORRECTION values. Example: 1.10\r\n");
+    uart_sendStr(buffer);
+
+    while (1) {
+        uart_sendStr(">> ");
+        double newValue = uart_receive_double();
+
+        TURN_CORRECTION = newValue;
+        sprintf(buffer, " TURN_CORRECTION = %.2f\r\n", TURN_CORRECTION);
+        uart_sendStr(buffer);
+
+        // Run test turn
+        turn_clockwise(sensor_data, 90);
+
+        printf("Done.\r\n");
+    }
+}
+

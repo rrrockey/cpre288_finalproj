@@ -12,6 +12,7 @@
 
 #include "uart.h"
 #include "timer.h"
+#include <stdlib.h>
 
 volatile char inputChar;
 
@@ -109,6 +110,24 @@ void uart_sendStr(const char *data){
         i++;
     }
 }
+
+double uart_receive_double(void) {
+    char buffer[32];
+    int i = 0;
+
+    char c;
+    while ((c = uart_receive()) != '\r') {
+        uart_sendChar(c);
+        buffer[i++] = c;
+    }
+    buffer[i] = '\0';
+
+    uart_sendStr("double in uart receive double: ");
+    uart_sendStr(buffer);
+
+    return atof(buffer);
+}
+
 
 
 

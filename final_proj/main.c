@@ -535,30 +535,6 @@ int main(void)
 //            move_forward(sensor_data, 50);
 //            update_distance(50, directionGlobal);
 
-
-            /*DELTE BELOW*/
-
-            move_scan(sensor_data, &moveScanData, 50, 45, 135);
-            int status = moveScanData.status;
-
-            double distance_moved = moveScanData.distanceTraveled;
-//            update_distance(distance_moved, directionGlobal);
-
-            char buffer[100];
-            sprintf(buffer, "distance traveled: %.2f\r\n", distance_moved);
-            uart_sendStr(buffer);
-            sprintf(buffer, "object encountered: %d\r\n", status);
-            uart_sendStr(buffer);
-
-            /*DELETE ABOVE*/
-
-
-
-
-
-
-
-
         }
         else if (c == 'a')
         {
@@ -578,6 +554,13 @@ int main(void)
         else if (c == 'h')
         {
             scan_cone(0, 180, &scanData);
+        }
+        else if (c == 'z') // calibrate wheels
+        {
+            uart_sendStr("received z, calibrating...\r\n");
+            calibrate_turn(sensor_data);
+//            sprintf(buffer, "correction: %.2f\r\n", correction);
+//            uart_sendStr(buffer);
         }
         else if (c == 'm')
         {

@@ -33,6 +33,6 @@ void gpiob_handler(void);
 
 void init_uart_interrupts(void);
 
-
+double uart_receive_double(void);
 
 #endif /* UART_H_ */
