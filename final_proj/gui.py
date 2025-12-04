@@ -81,6 +81,7 @@ class CyBotGUI:
         #x0, y0 = self.to_screen(0, 0)
        # x1, y1 = self.to_screen(MAX_X_CM, MAX_Y_CM)
         #self.canvas.create_rectangle(x0, y0, x1, y1, outline="gray", width=2)
+   
     def try_draw_boundary(self):
         """Draw the boundary rectangle once both edges are known."""
 
@@ -95,6 +96,8 @@ class CyBotGUI:
         # Convert to screen coords
         x0, y0 = self.to_screen(0, 0)
         x1, y1 = self.to_screen(self.horizontal_edge+OFFSET*2, self.vertical_edge+OFFSET*2)
+
+        self.canvas.delete("arrow")  # removes all movement arrows
 
         # Draw new rectangle
         self.boundary_rect = self.canvas.create_rectangle(
@@ -149,7 +152,7 @@ class CyBotGUI:
                 sx1, sy1 = self.to_screen(self.x, self.y)
                 self.x, self.y, self.dir = x + OFFSET, y + OFFSET, int(d)
                 sx2, sy2 = self.to_screen(self.x, self.y)
-                self.canvas.create_line(sx1, sy1, sx2, sy2, fill="blue", width=2, arrow=tk.LAST)
+                self.canvas.create_line(sx1, sy1, sx2, sy2, fill="blue", width=2, arrow=tk.LAST, tags = "arrow")
                 self.update_bot_pos()
                 
             elif cmd == "TURN": # TURN start end
@@ -268,6 +271,7 @@ class CyBotGUI:
         self.log_box.insert(tk.END, msg + "\n")
         self.log_box.see(tk.END)
         self.log_box.config(state='disabled')
+    
     def valid_distance(self, ir, ping):
         # IR is valid only < 50 cm
         if ir < 50:
