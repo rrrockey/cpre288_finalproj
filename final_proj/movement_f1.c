@@ -152,8 +152,8 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
         if(current_angle > high_angle) current_angle = low_angle;
         servo_move(current_angle);
         IR_val = adc_read();
-        estimation = 0.0000228813 * (IR_val * IR_val) - 0.0981288 * IR_val + 115.33455;
-        if(estimation < 25){
+        estimation = 4150000 * pow(IR_val, -1.64);
+        if(estimation < 20){
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
             moveScanData->status = OBJECT;
