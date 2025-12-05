@@ -404,107 +404,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
     }
 
     return 1;
-
-}
-
-void mowing_sequence(oi_t *sensor_data, move_scan_t *moveScanData) {
-
-#define cyBot_length 40
-    scan_info scanData;
-    int turn_dir = RIGHT; // the next direction the bot has to turn after encountering tape
-    int final_row = 0; // bool to keep track if cyBot is on the last row of mowing
-
-    while (1) {
-        scan_cone(40,140, &scanData);
-
-        servo_move(90);
-        int driveDist = 50;
-
-
-        move_scan(sensor_data, moveScanData, driveDist, 40, 140);
-        int status = moveScanData->status;
-
-
-        double distance_moved = moveScanData->distanceTraveled;
-        update_distance(distance_moved, directionGlobal);
-
-
-
-
-        if(status == OBJECT){
-
-            scan_cone(40,140, &scanData);
-            lateral_distance_traveled = 0;
-            distance_moved_back = 0;
-            avoid_object_mowing(sensor_data, moveScanData, &scanData, turn_dir);
-        }
-
-        if (status == BOUNDARY && !final_row) // if white tape found, start new row
-        {
-            if (turn_dir == RIGHT) {
-
-
-                int lastDirection = directionGlobal;
-                rotate_degrees(directionGlobal, -90, sensor_data); // clockwise
-                sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
-                uart_sendStr(buffer);
-
-                move_scan(sensor_data, moveScanData, cyBot_length, 40, 140);
-                int status = moveScanData->status;
-
-                double distance_moved = moveScanData->distanceTraveled;
-                update_distance(distance_moved, directionGlobal);
-
-
-
-
-                if (status == BOUNDARY) {
-                    final_row = 1;
-                }
-                if (status == OBJECT) {
-                    // call smaller avoid object
-                }
-                lastDirection = directionGlobal;
-                rotate_degrees(directionGlobal, -90, sensor_data); // clockwise
-                sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
-                uart_sendStr(buffer);
-                turn_dir = LEFT;
-            }
-            else { // turn_dir == LEFT
-
-                int lastDirection = directionGlobal;
-                rotate_degrees(directionGlobal, 90, sensor_data); // counterclockwise
-                sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
-                uart_sendStr(buffer);
-
-
-                move_scan(sensor_data, moveScanData, cyBot_length, 40, 140);
-                int status = moveScanData->status;
-
-                double distance_moved = moveScanData->distanceTraveled;
-                update_distance(distance_moved, directionGlobal);
-
-
-                if (status == BOUNDARY) {
-                    final_row = 1;
-                }
-                if (status == OBJECT) {
-                    // call smaller avoid object
-                }
-                lastDirection = directionGlobal;
-                rotate_degrees(directionGlobal, 90, sensor_data); // counterclockwise
-                sprintf(buffer, "TURN %d %d\r\n", lastDirection, directionGlobal);
-                uart_sendStr(buffer);
-                turn_dir = RIGHT;
-            }
-        }
-        else if (status == BOUNDARY && final_row) // final tape is found, mowing complete
-        {
-            break;
-        }
-    }
-
-    while(1);
+/*END avoid_object()*/
 }
 
 
@@ -518,6 +418,8 @@ int main(void)
     ping_init();
     adc_init();
     button_init();
+
+    int lastDirection;
 
     oi_t *sensor_data = oi_alloc();
     oi_init(sensor_data);
@@ -546,8 +448,8 @@ int main(void)
 
         if (c == 'w')
         {
-            move_forward(sensor_data, 50);
-            update_distance(50, directionGlobal);
+//            move_forward(sensor_data, 50);
+//            update_distance(50, directionGlobal);
         }
         else if (c == 'a')
         {
@@ -572,10 +474,7 @@ int main(void)
         {
             servo_calibrate();
         }
-        else if (c == 'p')
-        {
-            mowing_sequence(sensor_data, &moveScanData);
-        }
+
         else if (c == 'm')
         {
 
@@ -583,19 +482,14 @@ int main(void)
             {
                 oi_update(sensor_data);
 
-
-
+                // scan before movement
                 scan_cone(40,140, &scanData);
 //                 estimation = 0.0000228813 * (IR_val * IR_val)- 0.0981288 * IR_val + 115.33455;
-
-                servo_move(90);
-                double startDistance = 0;
-                double distanceChange;
 
                 int driveDist = fmin(200, scanData.averageAdc);
                 move_scan(sensor_data, &moveScanData, driveDist, 40, 140);
                 int status = moveScanData.status;
-                distanceChange = moveScanData.distanceTraveled;
+                double distanceChange = moveScanData.distanceTraveled;
                 update_distance(distanceChange, directionGlobal);
                 if(OBJECT == status){
 
@@ -609,30 +503,42 @@ int main(void)
                     uart_sendStr(buffer);
 
                 }
-                if (status == BOUNDARY)
+                else if (status == BOUNDARY)
                 {
-                    if (!turnStatus)
+                    if (!turnStatus) // first row
                     {
 
                         turnStatus = 1;
                         rotate_degrees(directionGlobal, 90, sensor_data);
 
                         sprintf(buffer, "EDGE HORIZONTAL %.0f\r\n", horizontalPos);
-
                         uart_sendStr(buffer);
-
-                        sensor_data->distance = 0;
-
                     }
-                    else
+                    else if (turnStatus == 1) // second row
                     {
-                        rotate_degrees(directionGlobal, 180, sensor_data);
+                        turnStatus = 2; // set to third row
+                        rotate_degrees(directionGlobal, 90, sensor_data);
 
                         sprintf(buffer, "EDGE VERTICAL %.0f\r\n", verticalPos);
-
                         uart_sendStr(buffer);
 
+                    }
+                    else if (turnStatus == 2) {
+                        turnStatus = 3;
+                        rotate_degrees(directionGlobal, 90, sensor_data);
+
+                        sprintf(buffer, "FOUND THIRD SIDE %.0f\r\n", verticalPos);
+                        uart_sendStr(buffer);
+                    }
+                    else if (turnStatus == 3) {
                         stop = 1;
+                        rotate_degrees(directionGlobal, 90, sensor_data);
+
+                        lcd_printf("finished perimeter!\r\n");
+                        sprintf(buffer, "finished perimeter!\r\n");
+                        uart_sendStr(buffer);
+                        oi_free(sensor_data);
+                        while (1);
                     }
                 }
                 else if(status == CLIFF || status == BUMP){
@@ -643,8 +549,6 @@ int main(void)
                 }
 
             }
-//    mowing_sequence(sensor_data, &moveScanData);
-
         }
     }
     oi_free(sensor_data);
