@@ -55,7 +55,7 @@ class CyBotGUI:
         
         tk.Label(left, text="Autonomous").pack(pady=(10,0))
         tk.Button(left, text="Start Auto (m)", command=lambda: self.send('m'), bg="orange", width=20).pack()
-
+        tk.Button(left, text="Rickroll", command=lambda: self.send('1'), bg="#ff69b4", width=20).pack(pady=5)
         tk.Label(left, text="Log").pack(pady=(10,0))
         self.log_box = scrolledtext.ScrolledText(left, width=30, height=15, state='disabled')
         self.log_box.pack(fill=tk.Y, expand=True)
