@@ -40,3 +40,6 @@ void calibrate_turning(oi_t *sensor_data);
 void move_scan(oi_t *sensor_data, move_scan_t* moveScanData, int cm, float low_angle, float high_angle);
 
 void calibrate_turn(oi_t *sensor_data);
+
+void re_center_tape(oi_t *sensor_data, move_scan_t *moveScanData);
+void move_forward_slow(oi_t *sensor_data, move_scan_t *moveScanData, int cm);

@@ -195,7 +195,7 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
         scanData->averageAdc = 200;
         scanData->averagePing = 200;
 
-        sprintf(buffer, "no object found:  \r\naverage width: %.2f, \r\ndrive dist %.2f, \r\nobject count: %d \r\n", scanData->adcWidth, scanData->driveDist, adcTickAmnt);
+        sprintf(buffer, "no object found:  \r\naverage width: %.2f, \r\ndrive dist hori %.2f, \r\nddv %.2f \r\nobject count: %d \r\n", scanData->adcWidth, scanData->driveDistHorizontal, scanData->driveDistVertical, adcTickAmnt);
             uart_sendStr(buffer);
         return;
     }
@@ -267,7 +267,7 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
         double tempAng = scanData->averageAngle - 180;
         sprintf(buffer, "averageADC %.2f  cos (tempAng)%.2f tempAng %.2f pillar width %d\r\n", (scanData->averageAdc), cos(tempAng * M_PI / 180.0), tempAng, pillarWidth);
         uart_sendStr(buffer);
-        scanData->driveDistHorizontal = (scanData->averageAdc) * cos(tempAng * M_PI / 180.0) + pillarWidth * cos(tempAng * M_PI / 180.0) + (cybotLength / 2);
+        scanData->driveDistHorizontal = (scanData->averageAdc) * cos(tempAng * M_PI / 180.0) + pillarWidth * cos(tempAng * M_PI / 180.0) + (cybotLength / 1.5);
     }
     else{
         double tempAng = scanData->averageAngle - 135;
@@ -305,18 +305,22 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         }
 
 
-        move_forward(sensor_data, moveScanData, scanData->driveDistHorizontal); // - scanData->averageAdc); //sideways
+        move_scan(sensor_data, moveScanData, scanData->driveDistHorizontal, 40, 140); // - scanData->averageAdc); //sideways
         update_distance(moveScanData->distanceTraveled, directionGlobal);
-        if(moveScanData->status == BOUNDARY){continue;}
+        if(moveScanData->status == BOUNDARY){
+//            re_center_tape(sensor_data, &moveScanData);
+            continue;
+        }
 
         else if(moveScanData->status == CLIFF || moveScanData->status == BUMP){
-                move_backward(sensor_data, 6);
+                sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
+                uart_sendStr(buffer);
+            move_backward(sensor_data, 6);
                 // TODO: update distance accorginly
-                scanData->driveDistHorizontal = 50; // TODO: INTEGRATE WITH DRIVE DIST HORIZONTAL
+
                 result = avoidObject(sensor_data, moveScanData, scanData);
                 if (result) return 1;
-                sprintf(buffer, "cliff sensor hit");
-                uart_sendStr(buffer);
+
             }
 
     //    update_distance(scanData->driveDist / 2, directionGlobal);
@@ -332,19 +336,22 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         }
 
 
-        move_forward(sensor_data, moveScanData, scanData->driveDistVertical ); //straight
+        move_scan(sensor_data, moveScanData, scanData->driveDistVertical, 40, 140); //straight
         update_distance(moveScanData->distanceTraveled, directionGlobal);
-        if(moveScanData->status == BOUNDARY){continue;}
+        if(moveScanData->status == BOUNDARY){
+//            re_center_tape(sensor_data, &moveScanData);
+            continue;
+        }
 
         else if(moveScanData->status == CLIFF || moveScanData->status == BUMP){
                 move_backward(sensor_data, 6);
                 // TODO: update distance accorginly
+                sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
+                                uart_sendStr(buffer);
 
-                scanData->driveDistHorizontal = 50; // TODO INTEGRATE WITH DTIVE DIST VERTICAL
                 result = avoidObject(sensor_data, moveScanData, scanData);
                 if (result) return 1;
-                sprintf(buffer, "cliff sensor hit");
-                uart_sendStr(buffer);
+
             }
 
     //    update_distance(scanData->driveDist, directionGlobal);
@@ -359,32 +366,44 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         }
 
 
-        move_forward(sensor_data, moveScanData, scanData->driveDistHorizontal); //straight
+        move_scan(sensor_data, moveScanData, scanData->driveDistHorizontal, 40, 140); //straight
         update_distance(moveScanData->distanceTraveled, directionGlobal);
-        if(moveScanData->status == BOUNDARY){continue;}
+        if(moveScanData->status == BOUNDARY){
+//            re_center_tape(sensor_data, &moveScanData);
+            continue;
+        }
         else if(moveScanData->status == CLIFF || moveScanData->status == BUMP){
                 move_backward(sensor_data, 6);
-                // TODO: update distance accorginly
-                scanData->driveDistHorizontal = 50;
+                sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
+                                uart_sendStr(buffer);
+
                 result = avoidObject(sensor_data, moveScanData, scanData);
                 if (result) return 1;
-                sprintf(buffer, "cliff sensor hit");
-                uart_sendStr(buffer);
+
             }
 
 
         break;
     }
-//when you finish recursion
+//when you finish recursion look for tape
 
     if (!turnStatus)
     {
         face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
     }
-    else
+    else if (turnStatus == 1)
     {
 
         face_direction(directionGlobal, POSITIVE_X, sensor_data);
+    }
+    else if (turnStatus == 2)
+    {
+
+        face_direction(directionGlobal, POSITIVE_Y, sensor_data);
+    }
+    else if (turnStatus == 3)
+    {
+        face_direction(directionGlobal, NEGATIVE_X, sensor_data);
     }
 
     //moving to white tape at end of seq
@@ -398,17 +417,28 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         }
         else
         {
-           move_forward(sensor_data, moveScanData, 25);
+           move_scan(sensor_data, moveScanData, 25, 40, 140);
            update_distance(moveScanData->distanceTraveled, directionGlobal);
         }
-
     }
+//    re_center_tape(sensor_data, &moveScanData);
 
+    //get back into direction to continue until next EDGE
     if (!turnStatus)
     {
         face_direction(directionGlobal, POSITIVE_X, sensor_data);
     }
-    else
+    else if (turnStatus == 1)
+    {
+        face_direction(directionGlobal, POSITIVE_Y, sensor_data);
+
+    }
+    else if (turnStatus == 2)
+    {
+        face_direction(directionGlobal, POSITIVE_Y, sensor_data);
+
+    }
+    else if (turnStatus == 3)
     {
         face_direction(directionGlobal, POSITIVE_Y, sensor_data);
 
@@ -481,6 +511,27 @@ int main(void)
         {
             scan_cone(0, 180, &moveScanData, &scanData);
         }
+        else if (c == '1' || button_getButton() == 1)
+        {
+            unsigned char rickrollNumNotes = 11;
+            unsigned char rickrollNotes[11]    = {53, 55, 48, 55, 57, 60, 58, 57, 53, 55, 48};
+            unsigned char rickrollDuration[11] = {48, 64, 16, 48, 48, 8,  8,  8,  48, 64, 64};
+            int RICK_ROLL = 0;
+            oi_loadSong(RICK_ROLL, rickrollNumNotes, rickrollNotes, rickrollDuration);
+            oi_play_song(RICK_ROLL);
+        }
+
+        else if (c == 't')
+        {
+            //used to check white sensors
+            while(1){
+
+                oi_update(sensor_data);
+                timer_waitMillis(10);
+                sprintf(buffer, "left %d\n FrontLeft %d\n FrontRight %d\n right %d", sensor_data->cliffLeftSignal, sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal, sensor_data->cliffRightSignal);
+                lcd_printf(buffer);
+            }
+        }
         else if (c == 'c')
         {
             servo_calibrate();
@@ -523,6 +574,7 @@ int main(void)
                 }
                 else if (status == BOUNDARY)
                 {
+                    re_center_tape(sensor_data, &moveScanData);
                     if (!turnStatus) // first row
                     {
 

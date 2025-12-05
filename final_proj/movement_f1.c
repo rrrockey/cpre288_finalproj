@@ -8,10 +8,10 @@
 
 
 #define WHITETAPE 2650
-#define BLACKTAPE 100
+#define BLACKTAPE 300
 
 
-volatile double TURN_CORRECTION = 1.00;
+volatile double TURN_CORRECTION = 0.99;
 volatile double TURN_CORRECTION_180 = 0.955;
 char buffer[100];
 
@@ -20,7 +20,7 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm)
     moveScanData->status = CLEAR;
     moveScanData->distanceTraveled = 0;
     double distanceTraveled = 0;
-    oi_setWheels(200, 200);
+    oi_setWheels(100, 100);
 
     while (distanceTraveled < cm * MM_IN_CM)
     {
@@ -122,7 +122,7 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
     moveScanData->status = CLEAR;
     moveScanData->distanceTraveled = 0;
     double distanceTraveled = 0;
-    oi_setWheels(75, 75);
+    oi_setWheels(50, 50);
     float current_angle = low_angle;
     int IR_val = 0;
     double estimation = 0;
@@ -290,5 +290,110 @@ void calibrate_turn(oi_t *sensor_data) {
 
         printf("Done.\r\n");
     }
+}
+
+void re_center_tape(oi_t *sensor_data, move_scan_t *moveScanData) {
+//    while(1){
+//        oi_update(sensor_data);
+//        timer_waitMillis(10);
+//        sprintf(buffer, " left %d\n FrontLeft %d\n FrontRight %d\n right %d", sensor_data->cliffLeftSignal, sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal, sensor_data->cliffRightSignal);
+//        lcd_printf(buffer);
+//    }
+
+
+
+    move_backward(sensor_data, 2);
+    move_forward_slow(sensor_data, moveScanData, 5);
+
+    oi_update(sensor_data);
+    sprintf(buffer, "in\nFrontLeft %d\n FrontRight %d\n",  sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
+    lcd_printf(buffer);
+    if (sensor_data->cliffFrontLeftSignal > WHITETAPE) {
+
+        while (1) {
+
+            oi_update(sensor_data);
+            sprintf(buffer, "out\nFrontLeft %d\n FrontRight %d\n",  sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
+            lcd_printf(buffer);
+            if (sensor_data->cliffFrontRightSignal > WHITETAPE) {
+                return;
+            }
+            move_backward(sensor_data, 2);
+            turn_counterclockwise(sensor_data, 2);
+            move_forward_slow(sensor_data, moveScanData, 5);
+
+
+        }
+
+    }
+
+    else if (sensor_data->cliffFrontRightSignal > WHITETAPE) {
+        while (1) {
+
+            oi_update(sensor_data);
+            if (sensor_data->cliffFrontLeftSignal > WHITETAPE) {
+                return;
+            }
+            move_backward(sensor_data, 2);
+            turn_clockwise(sensor_data, 2);
+            move_forward_slow(sensor_data, moveScanData, 5);
+
+//            sprintf(buffer, "FrontLeft %d\n FrontRight %d\n",  sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
+//            lcd_printf(buffer);
+        }
+
+    }
+}
+
+void move_forward_slow(oi_t *sensor_data, move_scan_t *moveScanData, int cm) {
+    moveScanData->status = CLEAR;
+        moveScanData->distanceTraveled = 0;
+        double distanceTraveled = 0;
+        oi_setWheels(30, 30);
+
+        while (distanceTraveled < cm * MM_IN_CM)
+        {
+            oi_update(sensor_data);
+
+            if (sensor_data->bumpLeft || sensor_data->bumpRight)
+            {
+                oi_setWheels(0, 0);
+                distanceTraveled += sensor_data->distance;
+                moveScanData->status = BUMP;
+                break;
+            }
+            if (sensor_data->cliffFrontLeftSignal > WHITETAPE
+                    || sensor_data->cliffFrontRightSignal > WHITETAPE)
+            {
+                oi_setWheels(0, 0);
+                distanceTraveled += sensor_data->distance;
+                moveScanData->status = BOUNDARY;
+                break;
+            }
+            if (sensor_data->cliffFrontLeftSignal < BLACKTAPE
+                    || sensor_data->cliffFrontRightSignal < BLACKTAPE)
+            {
+                oi_setWheels(0, 0);
+                distanceTraveled += sensor_data->distance;
+                moveScanData->status = CLIFF;
+                break;
+            }
+            else
+            {
+
+            }
+
+            distanceTraveled += sensor_data->distance;
+        }
+
+        oi_setWheels(0, 0);
+        timer_waitMillis(300);
+
+    #if DEBUG
+        printf("Moved forward: %.2f mm\n", distanceTraveled);
+    #endif
+
+        moveScanData->distanceTraveled = distanceTraveled / 10;
+        return;
 }
 
