@@ -9,6 +9,9 @@
 #define OBJECT 3
 #define CLEAR 4
 
+#define RIGHT 0
+#define LEFT 1
+
 #define DEBUG 0
 
 extern volatile double TURN_CORRECTION;  // adjust for turn being slightly off
