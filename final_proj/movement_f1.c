@@ -11,7 +11,7 @@
 #define BLACKTAPE 100
 
 
-volatile double TURN_CORRECTION = 0.96;
+volatile double TURN_CORRECTION = 1.00;
 volatile double TURN_CORRECTION_180 = 0.955;
 char buffer[100];
 
@@ -146,7 +146,9 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
             break;
         }
         if (sensor_data->cliffFrontLeftSignal < BLACKTAPE
-                || sensor_data->cliffFrontRightSignal < BLACKTAPE)
+                || sensor_data->cliffFrontRightSignal < BLACKTAPE
+                || sensor_data->cliffLeftSignal < BLACKTAPE
+                || sensor_data->cliffRightSignal < BLACKTAPE)
         {
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
@@ -284,7 +286,7 @@ void calibrate_turn(oi_t *sensor_data) {
         uart_sendStr(buffer);
 
         // Run test turn
-        turn_clockwise(sensor_data, 90);
+        turn_counterclockwise(sensor_data, 90);
 
         printf("Done.\r\n");
     }

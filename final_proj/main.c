@@ -122,7 +122,7 @@ void update_distance(double distance, int direction ){
 }
 
 
-void scan_cone(int low, int high, scan_info *scanData){
+void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanData){
     #define cybotLength 40
     int adcTickAmnt = 0;
     int pingTickAmnt = 0;
@@ -174,6 +174,17 @@ void scan_cone(int low, int high, scan_info *scanData){
                    uart_sendStr(buffer);
     //uart_sendStr("ENDSCAN");
 
+    //DECIDE DIST FOR BUMP AND CLIFF
+    if (moveScanData->status == CLIFF) {
+        scanData->driveDistHorizontal = 25;
+        scanData->driveDistVertical = 25;
+    } else if (moveScanData->status == BUMP) {
+        scanData->driveDistHorizontal = 25;
+        scanData->driveDistVertical = 25+20;
+    }
+
+
+    lcd_printf("Hori: %.2f Vert %.2f", scanData->driveDistHorizontal, scanData->driveDistVertical);
     // no objects found
     if(adcTickAmnt == 0 || pingTickAmnt == 0){
         sprintf(buffer, "No objects found!\r\n");
@@ -279,7 +290,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
     int result;
     //update_distance(driveDist, direction);
     rotate_degrees(directionGlobal, 90, sensor_data);
-    scan_cone(40, 140, scanData);
+    scan_cone(40, 140, moveScanData, scanData);
 
     while(moveScanData->status != BOUNDARY){
 
@@ -299,9 +310,9 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         if(moveScanData->status == BOUNDARY){continue;}
 
         else if(moveScanData->status == CLIFF || moveScanData->status == BUMP){
-                move_backward(sensor_data, 10);
+                move_backward(sensor_data, 6);
                 // TODO: update distance accorginly
-                scanData->driveDist = 50; // TODO: INTEGRATE WITH DRIVE DIST HORIZONTAL
+                scanData->driveDistHorizontal = 50; // TODO: INTEGRATE WITH DRIVE DIST HORIZONTAL
                 result = avoidObject(sensor_data, moveScanData, scanData);
                 if (result) return 1;
                 sprintf(buffer, "cliff sensor hit");
@@ -313,7 +324,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         rotate_degrees(directionGlobal, -90, sensor_data);
 
 
-        scan_cone(40, 140, scanData);
+        scan_cone(40, 140, moveScanData, scanData);
         if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist)
         {
             result = avoidObject(sensor_data, moveScanData, scanData);
@@ -326,10 +337,10 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         if(moveScanData->status == BOUNDARY){continue;}
 
         else if(moveScanData->status == CLIFF || moveScanData->status == BUMP){
-                move_backward(sensor_data, 10);
+                move_backward(sensor_data, 6);
                 // TODO: update distance accorginly
 
-                scanData->driveDist = 50; // TODO INTEGRATE WITH DTIVE DIST VERTICAL
+                scanData->driveDistHorizontal = 50; // TODO INTEGRATE WITH DTIVE DIST VERTICAL
                 result = avoidObject(sensor_data, moveScanData, scanData);
                 if (result) return 1;
                 sprintf(buffer, "cliff sensor hit");
@@ -340,7 +351,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
 
         rotate_degrees(directionGlobal, -90, sensor_data);
 
-        scan_cone(40, 140, scanData);
+        scan_cone(40, 140, moveScanData, scanData);
         if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist/2)
         {
             result = avoidObject(sensor_data, moveScanData, scanData);
@@ -352,9 +363,9 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         update_distance(moveScanData->distanceTraveled, directionGlobal);
         if(moveScanData->status == BOUNDARY){continue;}
         else if(moveScanData->status == CLIFF || moveScanData->status == BUMP){
-                move_backward(sensor_data, 10);
+                move_backward(sensor_data, 6);
                 // TODO: update distance accorginly
-                scanData->driveDist = 50;
+                scanData->driveDistHorizontal = 50;
                 result = avoidObject(sensor_data, moveScanData, scanData);
                 if (result) return 1;
                 sprintf(buffer, "cliff sensor hit");
@@ -379,7 +390,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
     //moving to white tape at end of seq
     while (moveScanData->status != BOUNDARY)
     {
-        scan_cone(40, 140, scanData);
+        scan_cone(40, 140, moveScanData, scanData);
         if (scanData->averageAdc < 25)
         {
             result = avoidObject(sensor_data, moveScanData, scanData);
@@ -468,12 +479,19 @@ int main(void)
         }
         else if (c == 'h')
         {
-            scan_cone(0, 180, &scanData);
+            scan_cone(0, 180, &moveScanData, &scanData);
         }
         else if (c == 'c')
         {
             servo_calibrate();
         }
+        else if (c == 'z') // calibrate wheels
+               {
+       uart_sendStr("received z, calibrating...\r\n");
+       calibrate_turn(sensor_data);
+       //            sprintf(buffer, "correction: %.2f\r\n", correction);
+       //            uart_sendStr(buffer);
+               }
 
         else if (c == 'm')
         {
@@ -483,7 +501,7 @@ int main(void)
                 oi_update(sensor_data);
 
                 // scan before movement
-                scan_cone(40,140, &scanData);
+                scan_cone(40, 140, &moveScanData, &scanData);
 //                 estimation = 0.0000228813 * (IR_val * IR_val)- 0.0981288 * IR_val + 115.33455;
 
                 int driveDist = fmin(200, scanData.averageAdc);
@@ -493,7 +511,7 @@ int main(void)
                 update_distance(distanceChange, directionGlobal);
                 if(OBJECT == status){
 
-                    scan_cone(40,140, &scanData);
+                    scan_cone(40, 140, &moveScanData, &scanData);
                 }
 //                sprintf(buffer, "scan data ADC %.2f, PING  %d \r\n", scanData.averageAdc, scanData.averagePing);
 //                uart_sendStr(buffer);
@@ -543,8 +561,7 @@ int main(void)
                 }
                 else if(status == CLIFF || status == BUMP){
 
-                    status = -1;
-                    move_backward(sensor_data, 15);
+                    move_backward(sensor_data, 6);
                     avoidObject(sensor_data, &moveScanData, &scanData);
                 }
 
