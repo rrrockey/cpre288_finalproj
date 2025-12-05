@@ -543,6 +543,13 @@ int main(void)
             move_backward(sensor_data, 50);
             update_distance(-50, directionGlobal);
         }
+        else if
+        {
+            I2C1_Init();
+            BNO055_Init();
+
+            lcd_printf("value %d", read_euler_heading()); // divide by 16 and correlate to a value that is eithe NSWE I believe
+        }
         else if (c == 'h')
         {
             scan_cone(0, 180, &moveScanData, &scanData);
