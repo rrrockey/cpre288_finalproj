@@ -97,7 +97,7 @@ class CyBotGUI:
         x0, y0 = self.to_screen(0, 0)
         x1, y1 = self.to_screen(self.horizontal_edge+OFFSET*2, self.vertical_edge+OFFSET*2)
 
-        self.canvas.delete("arrow")  # removes all movement arrows
+        #self.canvas.delete("arrow")  # removes all movement arrows
 
         # Draw new rectangle
         self.boundary_rect = self.canvas.create_rectangle(

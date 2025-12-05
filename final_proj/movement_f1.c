@@ -30,7 +30,13 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm)
         {
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
-            moveScanData->status = BUMP;
+            if(sensor_data->bumpLeft){
+                moveScanData->status = BUMPLEFT;
+            }
+            else{
+                moveScanData->status = BUMPRIGHT;
+            }
+
             break;
         }
         if (sensor_data->cliffFrontLeftSignal > WHITETAPE
@@ -69,52 +75,7 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm)
 }
 
 
-int trace_hole(oi_t *sensor_data)
-{
-    double distanceTraveled = 0;
-    oi_setWheels(50, 50);
 
-    while (1)
-    {
-        oi_update(sensor_data);
-
-        if (sensor_data->bumpLeft || sensor_data->bumpRight)
-        {
-            oi_setWheels(0, 0);
-            distanceTraveled += sensor_data->distance;
-            return BUMP;
-        }
-        if (sensor_data->cliffFrontLeftSignal > WHITETAPE
-                || sensor_data->cliffFrontRightSignal > WHITETAPE)
-        {
-            oi_setWheels(0, 0);
-            distanceTraveled += sensor_data->distance;
-            return BOUNDARY;
-        }
-        if (sensor_data->cliffLeftSignal >= BLACKTAPE
-                && sensor_data->cliffRightSignal >= BLACKTAPE)
-        {
-            oi_setWheels(0, 0);
-            distanceTraveled += sensor_data->distance;
-            return CLIFF;
-        }
-        else
-        {
-
-        }
-
-        distanceTraveled += sensor_data->distance;
-    }
-
-    oi_setWheels(0, 0);
-    timer_waitMillis(300);
-
-#if DEBUG
-    printf("Moved forward: %.2f mm\n", distanceTraveled);
-#endif
-
-    return distanceTraveled;
-}
 
 
 void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_angle, float high_angle)
@@ -134,7 +95,13 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
         {
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
-            moveScanData->status = BUMP;
+            if(sensor_data->bumpLeft){
+                moveScanData->status =  BUMPLEFT;
+                        }
+                        else{
+                            moveScanData->status =  BUMPRIGHT;
+                        }
+
             break;
         }
         if (sensor_data->cliffFrontLeftSignal > WHITETAPE
@@ -320,7 +287,7 @@ void re_center_tape(oi_t *sensor_data, move_scan_t *moveScanData) {
             }
             move_backward(sensor_data, 2);
             turn_counterclockwise(sensor_data, 2);
-            move_forward_slow(sensor_data, moveScanData, 5);
+            move_forward_slow(sensor_data, moveScanData, 50);
 
 
         }
@@ -336,7 +303,7 @@ void re_center_tape(oi_t *sensor_data, move_scan_t *moveScanData) {
             }
             move_backward(sensor_data, 2);
             turn_clockwise(sensor_data, 2);
-            move_forward_slow(sensor_data, moveScanData, 5);
+            move_forward_slow(sensor_data, moveScanData, 50);
 
 //            sprintf(buffer, "FrontLeft %d\n FrontRight %d\n",  sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
 //            lcd_printf(buffer);
@@ -359,7 +326,12 @@ void move_forward_slow(oi_t *sensor_data, move_scan_t *moveScanData, int cm) {
             {
                 oi_setWheels(0, 0);
                 distanceTraveled += sensor_data->distance;
-                moveScanData->status = BUMP;
+                if(sensor_data->bumpLeft){
+                    moveScanData->status =  BUMPLEFT;
+                }
+                else{
+                    moveScanData->status =  BUMPRIGHT;
+                }
                 break;
             }
             if (sensor_data->cliffFrontLeftSignal > WHITETAPE

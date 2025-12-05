@@ -3,11 +3,12 @@
 
 #define MM_IN_CM 10 // 10 millimeters in a cm
 
-#define BUMP 0
+#define BUMPLEFT 0
 #define BOUNDARY 1
 #define CLIFF 2
 #define OBJECT 3
 #define CLEAR 4
+#define BUMPRIGHT 5
 
 #define RIGHT 0
 #define LEFT 1

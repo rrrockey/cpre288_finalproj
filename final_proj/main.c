@@ -178,10 +178,14 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
     if (moveScanData->status == CLIFF) {
         scanData->driveDistHorizontal = 25;
         scanData->driveDistVertical = 25;
-    } else if (moveScanData->status == BUMP) {
-        scanData->driveDistHorizontal = 25;
-        scanData->driveDistVertical = 25+20;
+    } else if (moveScanData->status == BUMPLEFT) {
+        scanData->driveDistHorizontal = cybotLength;
+        scanData->driveDistVertical = 25 + cybotLength;
     }
+    else if (moveScanData->status == BUMPRIGHT) {
+            scanData->driveDistHorizontal = 20;
+            scanData->driveDistVertical = cybotLength + 25;
+        }
 
 
     lcd_printf("Hori: %.2f Vert %.2f", scanData->driveDistHorizontal, scanData->driveDistVertical);
@@ -294,7 +298,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
 
     while(moveScanData->status != BOUNDARY){
 
-        sprintf(buffer, "adcValue in recursion: %.2f", scanData->averageAdc);
+        sprintf(buffer, "adcValue in recursion: %.2f\r\n", scanData->averageAdc);
 
         uart_sendStr(buffer);
 
@@ -305,18 +309,18 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         }
 
 
-        move_scan(sensor_data, moveScanData, scanData->driveDistHorizontal, 40, 140); // - scanData->averageAdc); //sideways
+        move_forward(sensor_data, moveScanData, scanData->driveDistHorizontal); // - scanData->averageAdc); //sideways
         update_distance(moveScanData->distanceTraveled, directionGlobal);
         if(moveScanData->status == BOUNDARY){
 //            re_center_tape(sensor_data, &moveScanData);
             continue;
         }
 
-        else if(moveScanData->status == CLIFF || moveScanData->status == BUMP){
+        else if(moveScanData->status == CLIFF || moveScanData->status == BUMPLEFT || moveScanData->status == BUMPRIGHT){
                 sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
                 uart_sendStr(buffer);
             move_backward(sensor_data, 6);
-                // TODO: update distance accorginly
+            update_distance(-6, directionGlobal);
 
                 result = avoidObject(sensor_data, moveScanData, scanData);
                 if (result) return 1;
@@ -343,9 +347,9 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
             continue;
         }
 
-        else if(moveScanData->status == CLIFF || moveScanData->status == BUMP){
+        else if(moveScanData->status == CLIFF ||moveScanData->status == BUMPLEFT || moveScanData->status == BUMPRIGHT){
                 move_backward(sensor_data, 6);
-                // TODO: update distance accorginly
+                update_distance(-6, directionGlobal);
                 sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
                                 uart_sendStr(buffer);
 
@@ -372,8 +376,9 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
 //            re_center_tape(sensor_data, &moveScanData);
             continue;
         }
-        else if(moveScanData->status == CLIFF || moveScanData->status == BUMP){
+        else if(moveScanData->status == CLIFF || moveScanData->status == BUMPLEFT || moveScanData->status == BUMPRIGHT){
                 move_backward(sensor_data, 6);
+                update_distance(-6, directionGlobal);
                 sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
                                 uart_sendStr(buffer);
 
@@ -435,12 +440,12 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
     }
     else if (turnStatus == 2)
     {
-        face_direction(directionGlobal, POSITIVE_Y, sensor_data);
+        face_direction(directionGlobal, NEGATIVE_X, sensor_data);
 
     }
     else if (turnStatus == 3)
     {
-        face_direction(directionGlobal, POSITIVE_Y, sensor_data);
+        face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
 
     }
 
@@ -611,9 +616,10 @@ int main(void)
                         while (1);
                     }
                 }
-                else if(status == CLIFF || status == BUMP){
+                else if(status == CLIFF || status == BUMPLEFT || status == BUMPRIGHT){
 
                     move_backward(sensor_data, 6);
+                    update_distance(-6, directionGlobal);
                     avoidObject(sensor_data, &moveScanData, &scanData);
                 }
 
