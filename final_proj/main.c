@@ -51,25 +51,51 @@ double verticalPos = 0;
 int turnStatus = 0;
 char buffer[200];
 
+
+void rickroll(void) {
+    unsigned char rickrollNumNotes = 11;
+    unsigned char rickrollNotes[11]    = {53, 55, 48, 55, 57, 60, 58, 57, 53, 55, 48};
+    unsigned char rickrollDuration[11] = {48, 64, 16, 48, 48, 8,  8,  8,  48, 64, 64};
+    int RICK_ROLL = 0;
+    oi_loadSong(RICK_ROLL, rickrollNumNotes, rickrollNotes, rickrollDuration);
+    oi_play_song(RICK_ROLL);
+}
+
 void rotate_degrees(int angle/*global direction*/, int turnChange/*change in angle*/, oi_t *sensor_data){ //CCW is positive
     char buffer[200];
     int angleChange = turnChange/90;
     int startAngle = directionGlobal;
+    double angleSegment = 0;
+    int i =0;
     if(angleChange>0){
         angle+= angleChange;
         angle %=4;
-        turn_counterclockwise(sensor_data, angleChange*90);
-    }
-    else{
-        angle--;
-        if(angle<0){
-            angle +=4;
-            angleChange *= -1;
-            turn_clockwise(sensor_data, angleChange*90);
-        } else {
-            turn_clockwise(sensor_data, 90);
-        }
 
+        //turn_counterclockwise(sensor_data, angleChange*90);
+
+        for( i =0; i<1; i++){
+            turn_counterclockwise(sensor_data, angleChange *90);
+        }
+    }
+    else
+    {
+        angle--;
+        if (angle < 0)
+        {
+            angle += 4;
+            angleChange *= -1;
+            for ( i = 0; i < 1; i++)
+            {
+                turn_clockwise(sensor_data, angleChange * 90);
+            }
+        }
+        else
+        {
+            for ( i = 0; i < 1; i++)
+            {
+                turn_clockwise(sensor_data, 90);
+            }
+        }
 
     }
     sprintf(buffer, "TURN %d %d\r\n", startAngle, angle);
@@ -178,7 +204,8 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
     if (moveScanData->status == CLIFF) {
         scanData->driveDistHorizontal = 25;
         scanData->driveDistVertical = 25;
-    } else if (moveScanData->status == BUMPLEFT) {
+    }
+    else if (moveScanData->status == BUMPLEFT) {
         scanData->driveDistHorizontal = cybotLength;
         scanData->driveDistVertical = 25 + cybotLength;
     }
@@ -295,6 +322,10 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
     //update_distance(driveDist, direction);
     rotate_degrees(directionGlobal, 90, sensor_data);
     scan_cone(40, 140, moveScanData, scanData);
+
+
+        sprintf(buffer, "status when entering avoid object: %d\r\n", moveScanData->status);
+        uart_sendStr(buffer);
 
     while(moveScanData->status != BOUNDARY){
 
@@ -494,8 +525,8 @@ int main(void)
 
         if (c == 'w')
         {
-//            move_forward(sensor_data, 50);
-//            update_distance(50, directionGlobal);
+            move_forward(sensor_data, &moveScanData, 50);
+            update_distance(50, directionGlobal);
         }
         else if (c == 'a')
         {
@@ -518,12 +549,7 @@ int main(void)
         }
         else if (c == '1' || button_getButton() == 1)
         {
-            unsigned char rickrollNumNotes = 11;
-            unsigned char rickrollNotes[11]    = {53, 55, 48, 55, 57, 60, 58, 57, 53, 55, 48};
-            unsigned char rickrollDuration[11] = {48, 64, 16, 48, 48, 8,  8,  8,  48, 64, 64};
-            int RICK_ROLL = 0;
-            oi_loadSong(RICK_ROLL, rickrollNumNotes, rickrollNotes, rickrollDuration);
-            oi_play_song(RICK_ROLL);
+            rickroll();
         }
 
         else if (c == 't')
@@ -573,6 +599,25 @@ int main(void)
 //                uart_sendStr(buffer);
                 if(scanData.averageAdc < 20){
                     avoidObject(sensor_data , &moveScanData, &scanData);
+                    if (!turnStatus)
+                        {
+                            face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
+                        }
+                        else if (turnStatus == 1)
+                        {
+
+                            face_direction(directionGlobal, POSITIVE_X, sensor_data);
+                        }
+                        else if (turnStatus == 2)
+                        {
+
+                            face_direction(directionGlobal, POSITIVE_Y, sensor_data);
+                        }
+                        else if (turnStatus == 3)
+                        {
+                            face_direction(directionGlobal, NEGATIVE_X, sensor_data);
+                        }
+                    re_center_tape(sensor_data, &moveScanData);
                     sprintf(buffer, "Broke recursion %d <---------------------------\r\n", directionGlobal);
                     uart_sendStr(buffer);
 
@@ -611,6 +656,7 @@ int main(void)
 
                         lcd_printf("finished perimeter!\r\n");
                         sprintf(buffer, "finished perimeter!\r\n");
+                        rickroll();
                         uart_sendStr(buffer);
                         oi_free(sensor_data);
                         while (1);

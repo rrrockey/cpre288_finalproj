@@ -8,11 +8,11 @@
 
 
 #define WHITETAPE 2650
-#define BLACKTAPE 300
+#define BLACKTAPE 500
 
 
 volatile double TURN_CORRECTION = 0.99;
-volatile double TURN_CORRECTION_180 = 0.955;
+volatile double TURN_CORRECTION_180 = 0.98;
 char buffer[100];
 
 void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm)
@@ -20,7 +20,7 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm)
     moveScanData->status = CLEAR;
     moveScanData->distanceTraveled = 0;
     double distanceTraveled = 0;
-    oi_setWheels(100, 100);
+    oi_setWheels(150, 150);
 
     while (distanceTraveled < cm * MM_IN_CM)
     {
@@ -83,7 +83,7 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
     moveScanData->status = CLEAR;
     moveScanData->distanceTraveled = 0;
     double distanceTraveled = 0;
-    oi_setWheels(50, 50);
+    oi_setWheels(75, 75);
     float current_angle = low_angle;
     int IR_val = 0;
     double estimation = 0;
