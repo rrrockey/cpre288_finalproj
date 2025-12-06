@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ping.h"
+#include "IMU.h"
 #include <inc/tm4c123gh6pm.h>
 /**
  * main.c
@@ -39,7 +40,10 @@ typedef struct {
 
 
 
+
+
 int directionGlobal = 0; //0,1,2,3 for NWSE: starts at 0 for positive X /*should be 0 <----------- */
+int headVal = 0;
 double horizontalPos = 0;
 double verticalPos = 0;
 #define POSITIVE_X 0
@@ -67,6 +71,8 @@ void rotate_degrees(int angle/*global direction*/, int turnChange/*change in ang
     int startAngle = directionGlobal;
     double angleSegment = 0;
     int i =0;
+    sprintf(buffer, "value %d", read_euler_heading(BNO055_ADDRESS_B) / 16);
+                        uart_sendStr(buffer);
     if(angleChange>0){
         angle+= angleChange;
         angle %=4;
@@ -100,10 +106,13 @@ void rotate_degrees(int angle/*global direction*/, int turnChange/*change in ang
     }
     sprintf(buffer, "TURN %d %d\r\n", startAngle, angle);
                 uart_sendStr(buffer);
+                sprintf(buffer, "value %d", read_euler_heading(BNO055_ADDRESS_B) / 16);
+                                    uart_sendStr(buffer);
     directionGlobal = angle;
 }
 
 void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data){
+
     int direction = 90*(startDir - finalDir);
     if(direction == 0) {
         return;
@@ -127,6 +136,7 @@ void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data){
     }
 
 
+
 }
 
 void update_distance(double distance, int direction ){
@@ -144,7 +154,12 @@ void update_distance(double distance, int direction ){
             verticalPos-=distance;
         }
     sprintf(buffer, "MOVE %.0f %.0f %d %.0f\r\n", horizontalPos, verticalPos, direction, distance);
+
                 uart_sendStr(buffer);
+
+                sprintf(buffer, "value %d", read_euler_heading(BNO055_ADDRESS_B) / 16);
+                uart_sendStr(buffer);
+
 }
 
 
@@ -495,6 +510,8 @@ int main(void)
     ping_init();
     adc_init();
     button_init();
+    I2C1_Init();
+    BNO055_Init();
 
     int lastDirection;
 
@@ -513,6 +530,7 @@ int main(void)
 
 
     move_scan_t moveScanData;
+    compassVals compassVals;
     moveScanData.distanceTraveled = 0;
     moveScanData.status = CLEAR;
 
@@ -521,34 +539,50 @@ int main(void)
     {
 
         char c = uart_receive();
+        int b = button_getButton();
 
 
         if (c == 'w')
         {
             move_forward(sensor_data, &moveScanData, 50);
+            angle_correct(sensor_data, &moveScanData, directionGlobal, &compassVals);
             update_distance(50, directionGlobal);
         }
         else if (c == 'a')
         {
-            lastDirection = directionGlobal;
             rotate_degrees(directionGlobal, 90, sensor_data);
+             angle_correct(sensor_data, &moveScanData, directionGlobal, &compassVals);
+             lastDirection = directionGlobal;
         }
         else if (c == 'd')
         {
-            lastDirection = directionGlobal;
+
             rotate_degrees(directionGlobal, -90, sensor_data);
+            angle_correct(sensor_data, &moveScanData, directionGlobal, &compassVals);
+            lastDirection = directionGlobal;
         }
         else if (c == 's')
         {
             move_backward(sensor_data, 50);
+            angle_correct(sensor_data, &moveScanData, directionGlobal, &compassVals);
             update_distance(-50, directionGlobal);
         }
-        else if
+        else if (c == 'g')
         {
-            I2C1_Init();
-            BNO055_Init();
+//            I2C1_Init();
+//            BNO055_Init();
+            while (b != 1) {
+                int head =  read_euler_heading(BNO055_ADDRESS_B) / 16;
+                b = button_getButton();
+                lcd_printf("value %d", head); // divide by 16 and correlate to a value that is eithe NSWE I believe
+                timer_waitMillis(50);
 
-            lcd_printf("value %d", read_euler_heading()); // divide by 16 and correlate to a value that is eithe NSWE I believe
+                compassVals.headPosX = head;
+                compassVals.headNegY = ((head + 90) % 360);
+                compassVals.headNegX = ((head + 180) % 360);
+                compassVals.headPosY = ((head + 270) % 360);
+            }
+            headVal = read_euler_heading(BNO055_ADDRESS_B) / 16;
         }
         else if (c == 'h')
         {
