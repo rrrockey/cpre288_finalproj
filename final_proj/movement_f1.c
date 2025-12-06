@@ -325,7 +325,7 @@ void angle_correct(oi_t *sensor_data, move_scan_t *moveScanData, int directionGl
     int intendedDirection;
     if (directionGlobal == 0) {
         intendedDirection = compassVals->headPosX;
-        if(currentDirection - compassVals->headPosX > 0 || currentDirection-compassVals->headPosX < -180){
+        if(currentDirection - compassVals->headPosX > 0 || currentDirection-compassVals->headPosX < -180) {
             clockwise = 0;
 
         }
@@ -336,35 +336,41 @@ void angle_correct(oi_t *sensor_data, move_scan_t *moveScanData, int directionGl
     }
     if (directionGlobal == 1) {
         intendedDirection = compassVals->headPosY;
-        if(currentDirection - compassVals->headPosY > 0  || currentDirection-compassVals->headPosY < -180){
-                    clockwise = 0;
+        if(currentDirection - compassVals->headPosY > 0  || currentDirection-compassVals->headPosY < -180) {
+            clockwise = 0;
 
-                }
-                else{
-                    clockwise = 1;
-                }
+        }
+        else{
+            clockwise = 1;
+        }
 
     }
     if (directionGlobal == 2) {
         intendedDirection = compassVals->headNegX;
         if(currentDirection - compassVals->headNegX > 0  || currentDirection-compassVals->headNegX < -180) {
-                    clockwise = 0;
+            clockwise = 0;
 
-                }
-                else{
-                    clockwise = 1;
-                }
+        }
+        if(currentDirection - compassVals->headNegX > 0  /*|| currentDirection-compassVals->headNegX < -180*/) {
+            return;
+        }
+        else{
+            clockwise = 1;
+        }
 
     }
     if (directionGlobal == 3) {
         intendedDirection = compassVals->headNegY;
         if(currentDirection - compassVals->headNegY > 0  || currentDirection-compassVals->headNegY < -180){
-                    clockwise = 0;
+            clockwise = 0;
 
-                }
-                else{
-                    clockwise = 1;
-                }
+        }
+        else if(currentDirection - compassVals->headNegY == 0/*  || currentDirection-compassVals->headNegY == -180*/){
+            return;
+        }
+        else{
+            clockwise = 1;
+        }
 
     }
     if(!clockwise){
@@ -390,8 +396,8 @@ void angle_correct(oi_t *sensor_data, move_scan_t *moveScanData, int directionGl
 
                     currentDirection = read_euler_heading(BNO055_ADDRESS_B) / 16;
                 }
-
                 oi_setWheels(0, 0);
+
                 timer_waitMillis(300);
     }
 

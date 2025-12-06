@@ -29,6 +29,8 @@ typedef struct {
     int headNegY;
 } compassVals;
 
+extern compassVals compassVals;
+
 void move_forward(oi_t *sensor_data, move_scan_t *moveData, int cm);
 
 double move_backward(oi_t *sensor_data, int cm);

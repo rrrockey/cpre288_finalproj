@@ -32,15 +32,9 @@ typedef struct {
     double averageAngle;
     double driveDistHorizontal;
     double driveDistVertical;
-
-//    double driveDistHorizontal;
-//    double driveDistVertical;
-
 } scan_info;
 
-
-
-
+compassVals compassVals;
 
 int directionGlobal = 0; //0,1,2,3 for NWSE: starts at 0 for positive X /*should be 0 <----------- */
 int headVal = 0;
@@ -65,7 +59,7 @@ void rickroll(void) {
     oi_play_song(RICK_ROLL);
 }
 
-void rotate_degrees(int angle/*global direction*/, int turnChange/*change in angle*/, oi_t *sensor_data){ //CCW is positive
+void rotate_degrees(int angle/*global direction*/, int turnChange/*change in angle*/, oi_t *sensor_data, move_scan_t *moveScanData){ //CCW is positive
     char buffer[200];
     int angleChange = turnChange/90;
     int startAngle = directionGlobal;
@@ -109,9 +103,10 @@ void rotate_degrees(int angle/*global direction*/, int turnChange/*change in ang
                 sprintf(buffer, "value %d", read_euler_heading(BNO055_ADDRESS_B) / 16);
                                     uart_sendStr(buffer);
     directionGlobal = angle;
+    angle_correct(sensor_data, moveScanData, directionGlobal, compassVals);
 }
 
-void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data){
+void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data, move_scan_t *moveScanData){
 
     int direction = 90*(startDir - finalDir);
     if(direction == 0) {
@@ -120,19 +115,19 @@ void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data){
 
 
     if(direction == -270){
-        rotate_degrees(startDir, -1 * 90, sensor_data);
+        rotate_degrees(startDir, -1 * 90, sensor_data, moveScanData);
     }
     else if(direction == 270){
-        rotate_degrees(startDir, 1 * 90, sensor_data);
+        rotate_degrees(startDir, 1 * 90, sensor_data, moveScanData);
     }
     else if(direction == 90){
-        rotate_degrees(startDir, -1 * 90, sensor_data);
+        rotate_degrees(startDir, -1 * 90, sensor_data, moveScanData);
     }
     else if(direction == -90){
-        rotate_degrees(startDir, 1 * 90, sensor_data);
+        rotate_degrees(startDir, 1 * 90, sensor_data, moveScanData);
     }
     else if(direction == 180 || direction == -180){
-        rotate_degrees(startDir, 2 * 90, sensor_data);
+        rotate_degrees(startDir, 2 * 90, sensor_data, moveScanData);
     }
 
 
@@ -335,7 +330,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
 {
     int result;
     //update_distance(driveDist, direction);
-    rotate_degrees(directionGlobal, 90, sensor_data);
+    rotate_degrees(directionGlobal, 90, sensor_data, moveScanData);
     scan_cone(40, 140, moveScanData, scanData);
 
 
@@ -375,7 +370,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
 
     //    update_distance(scanData->driveDist / 2, directionGlobal);
 
-        rotate_degrees(directionGlobal, -90, sensor_data);
+        rotate_degrees(directionGlobal, -90, sensor_data, moveScanData);
 
 
         scan_cone(40, 140, moveScanData, scanData);
@@ -406,7 +401,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
 
     //    update_distance(scanData->driveDist, directionGlobal);
 
-        rotate_degrees(directionGlobal, -90, sensor_data);
+        rotate_degrees(directionGlobal, -90, sensor_data, moveScanData);
 
         scan_cone(40, 140, moveScanData, scanData);
         if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist/2)
@@ -440,21 +435,21 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
 
     if (!turnStatus)
     {
-        face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
+        face_direction(directionGlobal, NEGATIVE_Y, sensor_data, moveScanData);
     }
     else if (turnStatus == 1)
     {
 
-        face_direction(directionGlobal, POSITIVE_X, sensor_data);
+        face_direction(directionGlobal, POSITIVE_X, sensor_data, moveScanData);
     }
     else if (turnStatus == 2)
     {
 
-        face_direction(directionGlobal, POSITIVE_Y, sensor_data);
+        face_direction(directionGlobal, POSITIVE_Y, sensor_data, moveScanData);
     }
     else if (turnStatus == 3)
     {
-        face_direction(directionGlobal, NEGATIVE_X, sensor_data);
+        face_direction(directionGlobal, NEGATIVE_X, sensor_data, moveScanData);
     }
 
     //moving to white tape at end of seq
@@ -477,21 +472,21 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
     //get back into direction to continue until next EDGE
     if (!turnStatus)
     {
-        face_direction(directionGlobal, POSITIVE_X, sensor_data);
+        face_direction(directionGlobal, POSITIVE_X, sensor_data, moveScanData);
     }
     else if (turnStatus == 1)
     {
-        face_direction(directionGlobal, POSITIVE_Y, sensor_data);
+        face_direction(directionGlobal, POSITIVE_Y, sensor_data, moveScanData);
 
     }
     else if (turnStatus == 2)
     {
-        face_direction(directionGlobal, NEGATIVE_X, sensor_data);
+        face_direction(directionGlobal, NEGATIVE_X, sensor_data, moveScanData);
 
     }
     else if (turnStatus == 3)
     {
-        face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
+        face_direction(directionGlobal, NEGATIVE_Y, sensor_data, moveScanData);
 
     }
 
@@ -528,9 +523,14 @@ int main(void)
     scanData.driveDistHorizontal = 0;
     scanData.driveDistVertical = 0;
 
+//    compassVals compassVals;
+    compassVals.headNegX = 0;
+    compassVals.headNegY = 0;
+    compassVals.headPosX = 0;
+    compassVals.headPosY = 0;
 
     move_scan_t moveScanData;
-    compassVals compassVals;
+
     moveScanData.distanceTraveled = 0;
     moveScanData.status = CLEAR;
 
@@ -550,14 +550,14 @@ int main(void)
         }
         else if (c == 'a')
         {
-            rotate_degrees(directionGlobal, 90, sensor_data);
+            rotate_degrees(directionGlobal, 90, sensor_data, &moveScanData);
              angle_correct(sensor_data, &moveScanData, directionGlobal, &compassVals);
              lastDirection = directionGlobal;
         }
         else if (c == 'd')
         {
 
-            rotate_degrees(directionGlobal, -90, sensor_data);
+            rotate_degrees(directionGlobal, -90, sensor_data, &moveScanData);
             angle_correct(sensor_data, &moveScanData, directionGlobal, &compassVals);
             lastDirection = directionGlobal;
         }
@@ -629,6 +629,7 @@ int main(void)
 
                 int driveDist = fmin(200, scanData.averageAdc);
                 move_scan(sensor_data, &moveScanData, driveDist, 40, 140);
+
                 int status = moveScanData.status;
                 double distanceChange = moveScanData.distanceTraveled;
                 update_distance(distanceChange, directionGlobal);
@@ -642,21 +643,21 @@ int main(void)
                     avoidObject(sensor_data , &moveScanData, &scanData);
                     if (!turnStatus)
                         {
-                            face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
+                            face_direction(directionGlobal, NEGATIVE_Y, sensor_data, &moveScanData);
                         }
                         else if (turnStatus == 1)
                         {
 
-                            face_direction(directionGlobal, POSITIVE_X, sensor_data);
+                            face_direction(directionGlobal, POSITIVE_X, sensor_data, &moveScanData);
                         }
                         else if (turnStatus == 2)
                         {
 
-                            face_direction(directionGlobal, POSITIVE_Y, sensor_data);
+                            face_direction(directionGlobal, POSITIVE_Y, sensor_data, &moveScanData);
                         }
                         else if (turnStatus == 3)
                         {
-                            face_direction(directionGlobal, NEGATIVE_X, sensor_data);
+                            face_direction(directionGlobal, NEGATIVE_X, sensor_data, &moveScanData);
                         }
                     re_center_tape(sensor_data, &moveScanData);
                     sprintf(buffer, "Broke recursion %d <---------------------------\r\n", directionGlobal);
@@ -670,7 +671,7 @@ int main(void)
                     {
 
                         turnStatus = 1;
-                        rotate_degrees(directionGlobal, 90, sensor_data);
+                        rotate_degrees(directionGlobal, 90, sensor_data, &moveScanData);
 
                         sprintf(buffer, "EDGE HORIZONTAL %.0f\r\n", horizontalPos);
                         uart_sendStr(buffer);
@@ -678,7 +679,7 @@ int main(void)
                     else if (turnStatus == 1) // second row
                     {
                         turnStatus = 2; // set to third row
-                        rotate_degrees(directionGlobal, 90, sensor_data);
+                        rotate_degrees(directionGlobal, 90, sensor_data, &moveScanData);
 
                         sprintf(buffer, "EDGE VERTICAL %.0f\r\n", verticalPos);
                         uart_sendStr(buffer);
@@ -686,14 +687,14 @@ int main(void)
                     }
                     else if (turnStatus == 2) {
                         turnStatus = 3;
-                        rotate_degrees(directionGlobal, 90, sensor_data);
+                        rotate_degrees(directionGlobal, 90, sensor_data, &moveScanData);
 
                         sprintf(buffer, "FOUND THIRD SIDE %.0f\r\n", verticalPos);
                         uart_sendStr(buffer);
                     }
                     else if (turnStatus == 3) {
                         stop = 1;
-                        rotate_degrees(directionGlobal, 90, sensor_data);
+                        rotate_degrees(directionGlobal, 90, sensor_data, &moveScanData);
 
                         lcd_printf("finished perimeter!\r\n");
                         sprintf(buffer, "finished perimeter!\r\n");
