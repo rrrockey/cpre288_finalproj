@@ -2,6 +2,9 @@ import tkinter as tk
 from tkinter import scrolledtext
 import socket
 import math
+import numpy as np
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
 
 # Configuration
 HOST = "192.168.1.1" 
@@ -42,6 +45,19 @@ class CyBotGUI:
         
         left = tk.Frame(main)
         left.pack(side=tk.LEFT, fill=tk.Y)
+
+        # Plot Frame (Left of the grid, right of controls - or simply pack left next)
+        self.plot_frame = tk.Frame(main, bg="white", width=400, height=400)
+        self.plot_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+
+        # Initialize Figure
+        self.fig = Figure(figsize=(5, 4), dpi=100)
+        self.ax = self.fig.add_subplot(111, projection='polar')
+        self.configure_polar_plot()
+        
+        self.polar_canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
+        self.polar_canvas.draw()
+        self.polar_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         
         tk.Label(left, text="Manual Control").pack(pady=(10,0))
         ctrl = tk.Frame(left)
@@ -173,6 +189,7 @@ class CyBotGUI:
             elif cmd == "ENDSCAN":
                 self.scanning = False
                 self.draw_scan()
+                self.update_polar_plot()
             elif cmd == "EDGE":
                 # Format: EDGE HORIZONTAL 600  OR  EDGE VERTICAL 400
                 if len(parts) < 3:
@@ -257,6 +274,60 @@ class CyBotGUI:
             r = avg_d * 0.15 * SCALE
             self.canvas.create_oval(sx-r, sy-r, sx+r, sy+r,
                                     outline="blue", width=2)
+
+    def configure_polar_plot(self):
+        self.ax.set_theta_zero_location('E')
+        self.ax.set_theta_direction(1)
+        self.ax.set_thetamin(0)
+        self.ax.set_thetamax(180)
+        self.ax.set_rmax(200) # Max distance 200cm
+        self.ax.grid(True)
+        self.ax.set_title("Scan Data", va='bottom')
+        
+        # Custom Ticks
+        self.ax.set_yticks([0, 40, 80, 120, 160, 200])
+        self.ax.set_yticklabels([]) # Hide default labels
+        
+        # Add custom labels along the 0-degree axis (horizontal right)
+        # Ping (Blue): 0-200, IR (Red): 0-50 (displayed at 4x)
+        for r in [40, 80, 120, 160, 200]:
+            # Ping Label (Blue)
+            self.ax.annotate(f"{r}", xy=(0, r), xytext=(0, -10), textcoords='offset points',
+                             color='blue', ha='center', va='top', fontsize=8, fontweight='bold')
+            # IR Label (Red)
+            self.ax.annotate(f"{r//4}", xy=(0, r), xytext=(0, -22), textcoords='offset points',
+                             color='red', ha='center', va='top', fontsize=8, fontweight='bold')
+
+    def update_polar_plot(self):
+        self.ax.clear()
+        self.configure_polar_plot()
+        
+        if not self.scan_data:
+            self.polar_canvas.draw()
+            return
+            
+        # Extract data
+        angles = []
+        ir_dists = []
+        ping_dists = []
+        
+        for p in self.scan_data:
+            # Convert degrees to radians
+            rad = math.radians(p['a'])
+            angles.append(rad)
+            # Scale IR by 4 and cap at 200
+            ir_dists.append(min(p['ir'] * 4, 200))
+            # Cap Ping at 200
+            ping_dists.append(min(p['ping'], 200))
+
+        # Plot IR in Red
+        self.ax.plot(angles, ir_dists, color='r', label='IR (x4)')
+        
+        # Plot Ping in Blue
+        self.ax.plot(angles, ping_dists, color='b', label='Ping')
+        
+        self.ax.legend(loc='lower left', bbox_to_anchor=(-0.1, -0.2), fontsize='small')
+        self.polar_canvas.draw()
 
     def to_screen(self, x, y):
         margin = 50
