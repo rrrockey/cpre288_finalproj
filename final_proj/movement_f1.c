@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include "servo.h"
 #include "adc.h"
+#include "IMU.h"
+
 
 
 #define WHITETAPE 2650
@@ -310,6 +312,111 @@ void re_center_tape(oi_t *sensor_data, move_scan_t *moveScanData) {
         }
 
     }
+}
+
+void angle_correct(oi_t *sensor_data, move_scan_t *moveScanData, int directionGlobal, compassVals *compassVals) {
+
+    timer_waitMillis(1000);
+
+
+    int currentDirection = read_euler_heading(BNO055_ADDRESS_B) / 16;
+    int clockwise = 0;
+
+    int intendedDirection;
+    if (directionGlobal == 0) {
+        intendedDirection = compassVals->headPosX;
+        if(currentDirection - compassVals->headPosX > 0 || currentDirection-compassVals->headPosX < -180){
+            clockwise = 0;
+
+        }
+        else{
+            clockwise = 1;
+        }
+
+    }
+    if (directionGlobal == 1) {
+        intendedDirection = compassVals->headPosY;
+        if(currentDirection - compassVals->headPosY > 0  || currentDirection-compassVals->headPosY < -180){
+                    clockwise = 0;
+
+                }
+                else{
+                    clockwise = 1;
+                }
+
+    }
+    if (directionGlobal == 2) {
+        intendedDirection = compassVals->headNegX;
+        if(currentDirection - compassVals->headNegX > 0  || currentDirection-compassVals->headNegX < -180) {
+                    clockwise = 0;
+
+                }
+                else{
+                    clockwise = 1;
+                }
+
+    }
+    if (directionGlobal == 3) {
+        intendedDirection = compassVals->headNegY;
+        if(currentDirection - compassVals->headNegY > 0  || currentDirection-compassVals->headNegY < -180){
+                    clockwise = 0;
+
+                }
+                else{
+                    clockwise = 1;
+                }
+
+    }
+    if(!clockwise){
+
+        oi_setWheels(15, -15);
+
+        while (currentDirection != intendedDirection) {
+            lcd_printf("current: %d going %d\n dg: %d\nclockwise %d", currentDirection, intendedDirection, directionGlobal, clockwise);
+            oi_update(sensor_data);
+
+            currentDirection = read_euler_heading(BNO055_ADDRESS_B) / 16;
+        }
+
+        oi_setWheels(0, 0);
+        timer_waitMillis(300);
+    }
+    else{
+        oi_setWheels(-15, 15);
+
+        while (currentDirection != intendedDirection) {
+            lcd_printf("current: %d going %d\n dg: %d\nclockwise %d", currentDirection, intendedDirection, directionGlobal, clockwise);
+                    oi_update(sensor_data);
+
+                    currentDirection = read_euler_heading(BNO055_ADDRESS_B) / 16;
+                }
+
+                oi_setWheels(0, 0);
+                timer_waitMillis(300);
+    }
+
+
+
+//    int point = (currentDirection - directionGlobalCompass ) % 360; //finding halfway for if statements
+//
+//
+//
+//
+//    while(currentDirection != directionGlobalCompass) {
+//        lcd_printf("current: %d \nGoing: %d dg %d\n point: %d\nheadVal %d", currentDirection, directionGlobalCompass, directionGlobal, point, headVal);
+//
+//        if(point > 0) {
+//            turn_counterclockwise(sensor_data, 2);
+//        } else {
+//            turn_clockwise(sensor_data, 2);
+//        }
+//
+//
+//        currentDirection = read_euler_heading(BNO055_ADDRESS_B) / 16;
+//        point = (currentDirection - directionGlobalCompass ) % 360;
+//    }
+
+
 }
 
 void move_forward_slow(oi_t *sensor_data, move_scan_t *moveScanData, int cm) {

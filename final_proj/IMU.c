@@ -81,7 +81,8 @@ void BNO055_Init(void)
     timer_waitMillis(650);  // Wait for reset to complete
 
 // Set to CONFIG mode first
-    uint8_t config_mode = 0x00;
+
+    uint8_t config_mode = 0x00; // CONFIG mode
     I2C1_Write(BNO055_ADDRESS_B, 0x3D, &config_mode, 1);
     timer_waitMillis(25);
 
@@ -110,10 +111,10 @@ void BNO055_Init(void)
 
 // Wait for sensor to be fully calibrated
     uint8_t cal_status = 0;
-    uint8_t sys_cal = 0, gyro_cal = 0, accel_cal = 0, mag_cal = 0;
+    uint8_t sys_cal = 0, accel_cal = 0, mag_cal = 0, gyro_cal = 0;
 
     lcd_printf("Calibrating...\n");
-    while (sys_cal != 3 || gyro_cal != 3 || mag_cal != 3)
+    while (sys_cal != 3 || gyro_cal != 3 || accel_cal != 3 || mag_cal != 3)
     {
         // Read the calibration status
         I2C1_Read(BNO055_ADDRESS_B, 0x35, &cal_status, 1);
