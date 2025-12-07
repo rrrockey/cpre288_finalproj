@@ -506,9 +506,8 @@ int main(void)
     adc_init();
     button_init();
     I2C1_Init();
-    BNO055_Init();
+//    BNO055_Init();
 
-    int lastDirection;
 
     oi_t *sensor_data = oi_alloc();
     oi_init(sensor_data);
@@ -533,7 +532,7 @@ int main(void)
 
     moveScanData.distanceTraveled = 0;
     moveScanData.status = CLEAR;
-
+    int head = 0;
     int stop = 0;
     while (1)
     {
@@ -545,33 +544,41 @@ int main(void)
         if (c == 'w')
         {
             move_forward(sensor_data, &moveScanData, 50);
-            angle_correct(sensor_data, &moveScanData, directionGlobal, &compassVals);
+            straight_correct(sensor_data, &compassVals);
+            head =  read_euler_heading(BNO055_ADDRESS_B) / 16;
+
             update_distance(50, directionGlobal);
+            lcd_printf("head after move forward %d \n OI angle: %.2f ", head, sensor_data->angle);
         }
         else if (c == 'a')
         {
             rotate_degrees(directionGlobal, 90, sensor_data, &moveScanData, &compassVals);
-             angle_correct(sensor_data, &moveScanData, directionGlobal, &compassVals);
-             lastDirection = directionGlobal;
+            angle_correct(sensor_data, &moveScanData, directionGlobal, &compassVals);
+            lcd_printf("OI angle: %.2f", sensor_data->angle);
+
         }
         else if (c == 'd')
         {
 
             rotate_degrees(directionGlobal, -90, sensor_data, &moveScanData, &compassVals);
-        //    angle_correct(sensor_data, &moveScanData, directionGlobal, &compassVals);
-            lastDirection = directionGlobal;
+            angle_correct(sensor_data, &moveScanData, directionGlobal, &compassVals);
+            lcd_printf("OI angle: %.2f", sensor_data->angle);
+
         }
         else if (c == 's')
         {
             move_backward(sensor_data, 50);
-            angle_correct(sensor_data, &moveScanData, directionGlobal, &compassVals);
+            straight_correct(sensor_data, &compassVals);
+
+            head =  read_euler_heading(BNO055_ADDRESS_B) / 16;
             update_distance(-50, directionGlobal);
+            lcd_printf("head after move backward %d \n OI angle: %.2f ", head, sensor_data->angle);
         }
         else if (c == 'g')
         {
-//            I2C1_Init();
-//            BNO055_Init();
-            int head = 0;
+            BNO055_Init();
+
+
             while (b != 1) {
                 head =  read_euler_heading(BNO055_ADDRESS_B) / 16;
                 b = button_getButton();
@@ -580,7 +587,7 @@ int main(void)
 
             }
 
-            calibrate_gyro_turn(sensor_data);
+
             compassVals.headPosX = head;
             compassVals.headNegY = ((head + 90) % 360);
             compassVals.headNegX = ((head + 180) % 360);

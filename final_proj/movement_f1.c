@@ -13,8 +13,8 @@
 #define BLACKTAPE 500
 
 
-volatile double TURN_CORRECTION = 0.99;
-volatile double TURN_CORRECTION_180 = 0.98;
+volatile double TURN_CORRECTION = 1;
+volatile double TURN_CORRECTION_180 = 1;
 char buffer[100];
 
 void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm)
@@ -211,11 +211,11 @@ void turn_clockwise(oi_t *sensor_data, int degrees) {
     }
 
     double angleTurned = 0;
-    oi_setWheels(-50, 50);
+    oi_setWheels(-40, 40);
 
     while (angleTurned > -degrees) {
         oi_update(sensor_data);
-        lcd_printf("%d", read_euler_heading(BNO055_ADDRESS_B) / 16); // REMOVE LATER
+
         angleTurned += sensor_data->angle;
     }
 
@@ -232,7 +232,7 @@ void turn_counterclockwise(oi_t *sensor_data, int degrees) {
     }
 
     double angleTurned = 0;
-    oi_setWheels(50, -50);
+    oi_setWheels(40, -40);
 
     while (angleTurned < degrees) {
         oi_update(sensor_data);
@@ -313,6 +313,57 @@ void re_center_tape(oi_t *sensor_data, move_scan_t *moveScanData) {
         }
 
     }
+}
+
+void straight_correct(oi_t *sensor_data, compassVals *compassVals) {
+    timer_waitMillis(1000);
+
+    int currentAngle =  read_euler_heading(BNO055_ADDRESS_B) / 16;
+    int difference = currentAngle - compassVals->headPosX;
+    int clockwise = 0;
+
+
+    if(difference > 0 || difference < -180) {
+                clockwise = 0;
+
+            }
+            else{
+                clockwise = 1;
+            }
+
+    if(!clockwise){
+
+            oi_setWheels(15, -15);
+
+            while (currentAngle != compassVals->headPosX) {
+                lcd_printf("current: %d going %d\n dg: %d\nclockwise %d", currentAngle, compassVals->headPosX, clockwise);
+                oi_update(sensor_data);
+
+                currentAngle = read_euler_heading(BNO055_ADDRESS_B) / 16;
+            }
+
+            oi_setWheels(0, 0);
+            timer_waitMillis(300);
+        }
+        else{
+            oi_setWheels(-15, 15);
+
+            while (currentAngle != compassVals->headPosX) {
+                lcd_printf("current: %d going %d\n dg: %d\nclockwise %d", currentAngle, compassVals->headPosX, clockwise);
+                        oi_update(sensor_data);
+
+                        currentAngle = read_euler_heading(BNO055_ADDRESS_B) / 16;
+                    }
+                    oi_setWheels(0, 0);
+
+                    timer_waitMillis(300);
+        }
+
+
+    compassVals->headPosX = currentAngle;
+    compassVals->headNegY = ((currentAngle + 90) % 360);
+    compassVals->headNegX = ((currentAngle + 180) % 360);
+    compassVals->headPosY = ((currentAngle + 270) % 360);
 }
 
 void angle_correct(oi_t *sensor_data, move_scan_t *moveScanData, int directionGlobal, compassVals *compassVals) {
@@ -483,11 +534,4 @@ void move_forward_slow(oi_t *sensor_data, move_scan_t *moveScanData, int cm) {
         return;
 }
 
-void calibrate_gyro_turn(oi_t *sensor_data) {
-    int i = 0;
-    for(i = 0; i < 12; i++) {
-        turn_clockwise(sensor_data, 90);
-//        lcd_printf("%d", read_euler_heading(BNO055_ADDRESS_B) / 16);
-        timer_waitMillis(3000);
-    }
-}
+
