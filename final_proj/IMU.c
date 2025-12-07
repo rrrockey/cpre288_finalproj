@@ -114,7 +114,7 @@ void BNO055_Init(void)
     uint8_t sys_cal = 0, accel_cal = 0, mag_cal = 0, gyro_cal = 0;
 
     lcd_printf("Calibrating...\n");
-    while (sys_cal != 3 || gyro_cal != 3 || accel_cal != 3 || mag_cal != 3)
+    while (sys_cal != 3 || gyro_cal != 3 || accel_cal != 3  || mag_cal != 3)
     {
         // Read the calibration status
         I2C1_Read(BNO055_ADDRESS_B, 0x35, &cal_status, 1);

@@ -215,6 +215,7 @@ void turn_clockwise(oi_t *sensor_data, int degrees) {
 
     while (angleTurned > -degrees) {
         oi_update(sensor_data);
+        lcd_printf("%d", read_euler_heading(BNO055_ADDRESS_B) / 16); // REMOVE LATER
         angleTurned += sensor_data->angle;
     }
 
@@ -482,3 +483,11 @@ void move_forward_slow(oi_t *sensor_data, move_scan_t *moveScanData, int cm) {
         return;
 }
 
+void calibrate_gyro_turn(oi_t *sensor_data) {
+    int i = 0;
+    for(i = 0; i < 12; i++) {
+        turn_clockwise(sensor_data, 90);
+//        lcd_printf("%d", read_euler_heading(BNO055_ADDRESS_B) / 16);
+        timer_waitMillis(3000);
+    }
+}

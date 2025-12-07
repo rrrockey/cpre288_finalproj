@@ -29,7 +29,7 @@ typedef struct {
     int headNegY;
 } compassVals;
 
-extern compassVals compassVals;
+
 
 void move_forward(oi_t *sensor_data, move_scan_t *moveData, int cm);
 
@@ -53,3 +53,5 @@ void re_center_tape(oi_t *sensor_data, move_scan_t *moveScanData);
 void move_forward_slow(oi_t *sensor_data, move_scan_t *moveScanData, int cm);
 
 void angle_correct(oi_t *sensor_data, move_scan_t *moveScanData, int directionGlobal, compassVals *compassVals);
+
+void calibrate_gyro_turn(oi_t *sensor_data);
