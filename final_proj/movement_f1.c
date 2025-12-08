@@ -31,6 +31,10 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm)
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
             if(sensor_data->bumpLeft){
+                if(sensor_data->bumpRight){
+                    moveScanData->status = BUMPBOTH;
+                    break;
+                }
                 moveScanData->status = BUMPLEFT;
             }
             else{
@@ -96,6 +100,10 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
             if(sensor_data->bumpLeft){
+                if(sensor_data->bumpRight){
+                                    moveScanData->status = BUMPBOTH;
+                                    break;
+                                }
                 moveScanData->status =  BUMPLEFT;
                         }
                         else{

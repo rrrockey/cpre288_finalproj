@@ -43,38 +43,33 @@ int directionGlobal = 0; //0,1,2,3 for NWSE: starts at 0 for positive X /*should
 double horizontalPos = 0;
 double verticalPos = 0;
 #define POSITIVE_X 0
-#define POSITIVE_Y 1
-#define NEGATIVE_X 2
-#define NEGATIVE_Y 3
+#define POSITIVE_Y 90
+#define NEGATIVE_X 180
+#define NEGATIVE_Y 270
 
 
 int turnStatus = 0;
 char buffer[200];
 
-void rotate_degrees(int angle/*global direction*/, int turnChange/*change in angle*/, oi_t *sensor_data){ //CCW is positive
+void rotate_degrees(int angle_deg, int turnChange_deg, oi_t *sensor_data){
     char buffer[200];
-    int angleChange = turnChange/90;
     int startAngle = directionGlobal;
-    if(angleChange>0){
-        angle+= angleChange;
-        angle %=4;
-        turn_counterclockwise(sensor_data, angleChange*90);
-    }
-    else{
-        angle--;
-        if(angle<0){
-            angle +=4;
-            angleChange *= -1;
-            turn_clockwise(sensor_data, angleChange*90);
-        } else {
-            turn_clockwise(sensor_data, 90);
-        }
 
-
+    // Perform Turn
+    if (turnChange_deg > 0) {
+        turn_counterclockwise(sensor_data, turnChange_deg);
+    } else {
+        turn_clockwise(sensor_data, -turnChange_deg); // Pass positive value
     }
-    sprintf(buffer, "TURN %d %d\r\n", startAngle, angle);
-                uart_sendStr(buffer);
-    directionGlobal = angle;
+
+    // Update Global Direction (0-359)
+    directionGlobal += turnChange_deg;
+
+    // Normalize to 0-359
+    while (directionGlobal >= 360) directionGlobal -= 360;
+    while (directionGlobal < 0) directionGlobal += 360;
+    sprintf(buffer, "TURN %d %d\r\n", startAngle, directionGlobal);
+    uart_sendStr(buffer);
 }
 
 void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data){
@@ -105,18 +100,20 @@ void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data){
 
 void update_distance(double distance, int direction ){
     char buffer[200];
-    if(direction == 0){
-        horizontalPos+=distance;
-    }
-    else if(direction == 1){
-        verticalPos+=distance;
-    }
-    else if(direction == 2){
-            horizontalPos-=distance;
-        }
-        else if(direction == 3){
-            verticalPos-=distance;
-        }
+//    if(direction == 0){
+//        horizontalPos+=distance;
+//    }
+//    else if(direction == 1){
+//        verticalPos+=distance;
+//    }
+//    else if(direction == 2){
+//            horizontalPos-=distance;
+//        }
+//        else if(direction == 3){
+//            verticalPos-=distance;
+//        }
+    horizontalPos += distance * cos(direction * 3.14 / 180);
+    verticalPos += distance * sin(direction * 3.14 / 180);
     sprintf(buffer, "MOVE %.0f %.0f %d %.0f\r\n", horizontalPos, verticalPos, direction, distance);
                 uart_sendStr(buffer);
 }
@@ -494,19 +491,263 @@ int main(void)
 
         if (c == 'w')
         {
-//            move_forward(sensor_data, 50);
-//            update_distance(50, directionGlobal);
+            move_forward(sensor_data, &moveScanData, 25);
+            update_distance(moveScanData.distanceTraveled, directionGlobal);
+            if (moveScanData.status == BOUNDARY)
+            {
+
+                sprintf(buffer, "BOUNDARY %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                moveScanData.status = CLEAR;
+                move_backward(sensor_data, 7);
+                update_distance(-7, directionGlobal);
+            }
+            else if (moveScanData.status == CLIFF)
+            {
+
+                sprintf(buffer, "CLIFF %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                moveScanData.status = CLEAR;
+                move_backward(sensor_data, 7);
+                update_distance(-7, directionGlobal);
+            }
+            else if (moveScanData.status == BUMPLEFT)
+            {
+
+                sprintf(buffer, "BUMPLEFT %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                moveScanData.status = CLEAR;
+                move_backward(sensor_data, 7);
+                update_distance(-7, directionGlobal);
+            }
+            else if (moveScanData.status == BUMPRIGHT)
+            {
+
+                sprintf(buffer, "BUMPRIGHT %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                moveScanData.status = CLEAR;
+                move_backward(sensor_data, 7);
+                update_distance(-7, directionGlobal);
+            }
+            else if (moveScanData.status == BUMPBOTH)
+            {
+
+                sprintf(buffer, "BUMPBOTH %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                moveScanData.status = CLEAR;
+                move_backward(sensor_data, 7);
+                update_distance(-7, directionGlobal);
+            }
+
+        }
+        if (c == 'e')
+        {
+            move_scan(sensor_data, &moveScanData, 25, 45, 135);
+            update_distance(moveScanData.distanceTraveled, directionGlobal);
+            if (moveScanData.status == BOUNDARY)
+            {
+
+                sprintf(buffer, "BOUNDARY %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                moveScanData.status = CLEAR;
+                move_backward(sensor_data, 7);
+                update_distance(-7, directionGlobal);
+            }
+            else if (moveScanData.status == CLIFF)
+            {
+
+                sprintf(buffer, "CLIFF %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                moveScanData.status = CLEAR;
+                move_backward(sensor_data, 7);
+                update_distance(-7, directionGlobal);
+            }
+            else if (moveScanData.status == BUMPLEFT)
+            {
+
+                sprintf(buffer, "BUMPLEFT %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                moveScanData.status = CLEAR;
+                move_backward(sensor_data, 7);
+                update_distance(-7, directionGlobal);
+            }
+            else if (moveScanData.status == BUMPRIGHT)
+            {
+
+                sprintf(buffer, "BUMPRIGHT %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                moveScanData.status = CLEAR;
+                move_backward(sensor_data, 7);
+                update_distance(-7, directionGlobal);
+            }
+            else if (moveScanData.status == BUMPBOTH)
+            {
+
+                sprintf(buffer, "BUMPBOTH %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                moveScanData.status = CLEAR;
+                move_backward(sensor_data, 7);
+                update_distance(-7, directionGlobal);
+            }
+
         }
         else if (c == 'a')
         {
             lastDirection = directionGlobal;
             rotate_degrees(directionGlobal, 90, sensor_data);
+            if (moveScanData.status == BOUNDARY)
+            {
+
+                sprintf(buffer, "BOUNDARY %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                move_backward(sensor_data, 10);
+                update_distance(-10, directionGlobal);
+                moveScanData.status = CLEAR;
+            }
+            else if (moveScanData.status == CLIFF)
+            {
+
+                sprintf(buffer, "CLIFF %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                move_backward(sensor_data, 10);
+                update_distance(-10, directionGlobal);
+                moveScanData.status = CLEAR;
+            }
         }
         else if (c == 'd')
         {
             lastDirection = directionGlobal;
             rotate_degrees(directionGlobal, -90, sensor_data);
+            if (moveScanData.status == BOUNDARY)
+            {
+
+                sprintf(buffer, "BOUNDARY %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                move_backward(sensor_data, 10);
+                update_distance(-10, directionGlobal);
+                moveScanData.status = CLEAR;
+            }
+            else if (moveScanData.status == CLIFF)
+            {
+
+                sprintf(buffer, "CLIFF %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                move_backward(sensor_data, 10);
+                update_distance(-10, directionGlobal);
+                moveScanData.status = CLEAR;
+            }
         }
+        else if (c == 'i')
+        {
+            rotate_degrees(directionGlobal, 30, sensor_data);  // Left 30
+            if (moveScanData.status == BOUNDARY)
+            {
+
+                sprintf(buffer, "BOUNDARY %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                move_backward(sensor_data, 10);
+                update_distance(-10, directionGlobal);
+                moveScanData.status = CLEAR;
+            }
+            else if (moveScanData.status == CLIFF)
+            {
+
+                sprintf(buffer, "CLIFF %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                move_backward(sensor_data, 10);
+                update_distance(-10, directionGlobal);
+                moveScanData.status = CLEAR;
+            }
+        }
+        else if (c == 'o')
+        {
+            rotate_degrees(directionGlobal, -30, sensor_data); // Right 30
+            if (moveScanData.status == BOUNDARY)
+            {
+
+                sprintf(buffer, "BOUNDARY %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                move_backward(sensor_data, 10);
+                update_distance(-10, directionGlobal);
+                moveScanData.status = CLEAR;
+            }
+            else if (moveScanData.status == CLIFF)
+            {
+
+                sprintf(buffer, "CLIFF %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                move_backward(sensor_data, 10);
+                update_distance(-10, directionGlobal);
+                moveScanData.status = CLEAR;
+            }
+        }
+        else if (c == 'j')
+        {
+            rotate_degrees(directionGlobal, 60, sensor_data);  // Left 60
+            if (moveScanData.status == BOUNDARY)
+            {
+
+                sprintf(buffer, "BOUNDARY %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                move_backward(sensor_data, 10);
+                update_distance(-10, directionGlobal);
+                moveScanData.status = CLEAR;
+            }
+            else if (moveScanData.status == CLIFF)
+            {
+
+                sprintf(buffer, "CLIFF %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                move_backward(sensor_data, 10);
+                update_distance(-10, directionGlobal);
+                moveScanData.status = CLEAR;
+            }
+        }
+        else if (c == 'k')
+        {
+            rotate_degrees(directionGlobal, -60, sensor_data); // Right 60
+            if (moveScanData.status == BOUNDARY)
+            {
+
+                sprintf(buffer, "BOUNDARY %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                move_backward(sensor_data, 10);
+                update_distance(-10, directionGlobal);
+                moveScanData.status = CLEAR;
+            }
+            else if (moveScanData.status == CLIFF)
+            {
+
+                sprintf(buffer, "CLIFF %.0f %.0f %d\r\n", horizontalPos,
+                        verticalPos, directionGlobal);
+                uart_sendStr(buffer);
+                move_backward(sensor_data, 10);
+                update_distance(-10, directionGlobal);
+                moveScanData.status = CLEAR;
+            }
+        }
+
         else if (c == 's')
         {
             move_backward(sensor_data, 50);

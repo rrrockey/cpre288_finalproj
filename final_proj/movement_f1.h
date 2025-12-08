@@ -9,6 +9,7 @@
 #define OBJECT 3
 #define CLEAR 4
 #define BUMPRIGHT 5
+#define BUMPBOTH 6
 
 #define RIGHT 0
 #define LEFT 1

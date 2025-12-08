@@ -1,7 +1,11 @@
 import tkinter as tk
 from tkinter import scrolledtext
+from tkinter import ttk
 import socket
 import math
+import numpy as np
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
 
 # Configuration
 HOST = "192.168.1.1" 
@@ -42,17 +46,40 @@ class CyBotGUI:
         
         left = tk.Frame(main)
         left.pack(side=tk.LEFT, fill=tk.Y)
+
+        # Plot Frame (Left of the grid, right of controls - or simply pack left next)
+        self.plot_frame = tk.Frame(main, bg="white", width=400, height=400)
+        self.plot_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+
+        # Initialize Figure
+        self.fig = Figure(figsize=(5, 4), dpi=100)
+        self.ax = self.fig.add_subplot(111, projection='polar')
+        self.configure_polar_plot()
+        
+        self.polar_canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
+        self.polar_canvas.draw()
+        self.polar_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         
         tk.Label(left, text="Manual Control").pack(pady=(10,0))
         ctrl = tk.Frame(left)
         ctrl.pack(pady=5)
         
         tk.Button(ctrl, text="^", command=lambda: self.send('w'), bg="lime", width=5).grid(row=0, column=1)
-        tk.Button(ctrl, text="<", command=lambda: self.send('a'), bg="green", width=5).grid(row=1, column=0)
-        tk.Button(ctrl, text="v", command=lambda: self.send('s'), bg="green", width=5).grid(row=1, column=1)
-        tk.Button(ctrl, text=">", command=lambda: self.send('d'), bg="green", width=5).grid(row=1, column=2)
-        tk.Button(ctrl, text="Scan", command=lambda: self.send('h'), bg="cyan", width=15).grid(row=2, column=0, columnspan=3, pady=5)
+        tk.Button(ctrl, text="^ Scan", command=lambda: self.send('e'), bg="lime", width=5).grid(row=0, column=2)
         
+        # Turn Row
+        tk.Button(ctrl, text="<", command=lambda: self.send_turn('left'), bg="green", width=5).grid(row=1, column=0)
+        tk.Button(ctrl, text="v", command=lambda: self.send('s'), bg="green", width=5).grid(row=1, column=1)
+        tk.Button(ctrl, text=">", command=lambda: self.send_turn('right'), bg="green", width=5).grid(row=1, column=2)
+        
+        # Options Row
+        tk.Label(ctrl, text="Turn Angle:").grid(row=2, column=0, columnspan=2, sticky="e")
+        self.turn_angle = tk.StringVar(value="90")
+        self.turn_combo = ttk.Combobox(ctrl, textvariable=self.turn_angle, values=["30", "60", "90"], width=3, state="readonly")
+        self.turn_combo.grid(row=2, column=2, sticky="w")
+        
+        tk.Button(ctrl, text="Scan", command=lambda: self.send('h'), bg="cyan", width=15).grid(row=3, column=0, columnspan=3, pady=5)
+        tk.Button(ctrl, text="Calibrate", command=lambda: self.send('g'), bg="#ff00b4", width=15).grid(row=4, column=0, columnspan=3, pady=5)
         tk.Label(left, text="Autonomous").pack(pady=(10,0))
         tk.Button(left, text="Start Auto (m)", command=lambda: self.send('m'), bg="orange", width=20).pack()
         tk.Button(left, text="Rickroll", command=lambda: self.send('1'), bg="#ff69b4", width=20).pack(pady=5)
@@ -104,7 +131,67 @@ class CyBotGUI:
             x0, y0, x1, y1, outline="red", width=3
         )
 
+
         self.log(f"Boundary drawn: {self.horizontal_edge} x {self.vertical_edge} cm")
+
+    def draw_marker(self, event_type, x, y, direction):
+        # Robot center at time of message (after backup)
+        cx, cy = x + OFFSET, y + OFFSET
+        
+        # Calculate "impact" center (7cm forward from current pos)
+        # Convert direction (degrees) to radians
+        rad = math.radians(direction)
+        
+        # Center of the line/marker
+        mx = cx + 7 * math.cos(rad)
+        my = cy + 7 * math.sin(rad)
+        
+        if event_type in ["CLIFF", "BOUNDARY"]:
+            # Draw perpendicular line
+            # Line width 50cm (25 each side)
+            # Perpendicular angle: direction + 90
+            perp_rad = rad + math.pi/2
+            
+            dx = 25 * math.cos(perp_rad)
+            dy = 25 * math.sin(perp_rad)
+            
+            x1, y1 = self.to_screen(mx - dx, my - dy)
+            x2, y2 = self.to_screen(mx + dx, my + dy)
+            
+            color = "black" if event_type == "CLIFF" else "gray"
+            self.canvas.create_line(x1, y1, x2, y2, fill=color, width=4)
+            
+        elif event_type in ["BUMPLEFT", "BUMPRIGHT", "BUMPBOTH"]:
+            # Draw bumper impact
+            # BUMPLEFT: Front Left (~45 deg left of facing)
+            # BUMPRIGHT: Front Right (~45 deg right of facing)
+            
+            angle_offset = math.radians(45)
+            if event_type == "BUMPLEFT":
+                angle_offset = -angle_offset # Left is positive angle usually? Standard: CCW is positive.
+                # If 0 is Right (East), 90 is Up (North).
+                # Turning Left increases angle. So Left is +45?
+                # Let's verify standard angle: 
+                # 0=Right, 90=Up.
+                # Left of 0 is positive deg? No, Turning Left = 0->90. Yes.
+                # So Left is +45 deg relative to heading.
+                angle_offset = math.radians(45) 
+            elif event_type == "BUMPBOTH":
+                angle_offset = math.radians(0)
+            else:
+                angle_offset = math.radians(-45)
+                
+            # Bump location relative to robot center (Radius 17.5)
+            # Impact point
+            impact_rad = rad + angle_offset
+            ix = cx + OFFSET * math.cos(impact_rad)
+            iy = cy + OFFSET * math.sin(impact_rad)
+            
+            # Draw a small "X" or line at impact
+            sx, sy = self.to_screen(ix, iy)
+            r = 5
+            self.canvas.create_line(sx-r, sy-r, sx+r, sy+r, fill="red", width=3)
+            self.canvas.create_line(sx-r, sy+r, sx+r, sy-r, fill="red", width=3)
 
     def connect(self):
         #connect to cybot
@@ -126,6 +213,21 @@ class CyBotGUI:
                 self.cybot.write(char.encode())
                 self.log(f"Sent: {char}")
             except: pass
+
+    def send_turn(self, side):
+        angle = self.turn_angle.get()
+        char = ''
+        if side == 'left':
+            if angle == '30': char = 'i'
+            elif angle == '60': char = 'j'
+            elif angle == '90': char = 'a'
+        else: # right
+            if angle == '30': char = 'o'
+            elif angle == '60': char = 'k'
+            elif angle == '90': char = 'd'
+            
+        if char:
+            self.send(char)
 
     def poll_data(self):
         #poll data
@@ -173,6 +275,7 @@ class CyBotGUI:
             elif cmd == "ENDSCAN":
                 self.scanning = False
                 self.draw_scan()
+                self.update_polar_plot()
             elif cmd == "EDGE":
                 # Format: EDGE HORIZONTAL 600  OR  EDGE VERTICAL 400
                 if len(parts) < 3:
@@ -191,7 +294,9 @@ class CyBotGUI:
 
                 # Now try to draw rectangle if both are known
                 self.try_draw_boundary()
-                    
+            elif cmd in ["CLIFF", "BOUNDARY", "BUMPLEFT", "BUMPRIGHT", "BUMPBOTH"]:
+                x, y, d = map(float, parts[1:])
+                self.draw_marker(cmd, x, y, d)
                 
         except: pass
 
@@ -248,7 +353,7 @@ class CyBotGUI:
             avg_a = sum(p['a'] for p in obj) / len(obj)
             avg_d = sum(p['d'] for p in obj) / len(obj)
 
-            bot_deg = self.dir * 90
+            bot_deg = self.dir
             rad = math.radians(bot_deg + (avg_a - 90))
 
             sx, sy = self.to_screen(self.x + avg_d*math.cos(rad),
@@ -257,6 +362,60 @@ class CyBotGUI:
             r = avg_d * 0.15 * SCALE
             self.canvas.create_oval(sx-r, sy-r, sx+r, sy+r,
                                     outline="blue", width=2)
+
+    def configure_polar_plot(self):
+        self.ax.set_theta_zero_location('E')
+        self.ax.set_theta_direction(1)
+        self.ax.set_thetamin(0)
+        self.ax.set_thetamax(180)
+        self.ax.set_rmax(200) # Max distance 200cm
+        self.ax.grid(True)
+        self.ax.set_title("Scan Data", va='bottom')
+        
+        # Custom Ticks
+        self.ax.set_yticks([0, 40, 80, 120, 160, 200])
+        self.ax.set_yticklabels([]) # Hide default labels
+        
+        # Add custom labels along the 0-degree axis (horizontal right)
+        # Ping (Blue): 0-200, IR (Red): 0-50 (displayed at 4x)
+        for r in [40, 80, 120, 160, 200]:
+            # Ping Label (Blue)
+            self.ax.annotate(f"{r}", xy=(0, r), xytext=(0, -10), textcoords='offset points',
+                             color='blue', ha='center', va='top', fontsize=8, fontweight='bold')
+            # IR Label (Red)
+            self.ax.annotate(f"{r//4}", xy=(0, r), xytext=(0, -22), textcoords='offset points',
+                             color='red', ha='center', va='top', fontsize=8, fontweight='bold')
+
+    def update_polar_plot(self):
+        self.ax.clear()
+        self.configure_polar_plot()
+        
+        if not self.scan_data:
+            self.polar_canvas.draw()
+            return
+            
+        # Extract data
+        angles = []
+        ir_dists = []
+        ping_dists = []
+        
+        for p in self.scan_data:
+            # Convert degrees to radians
+            rad = math.radians(p['a'])
+            angles.append(rad)
+            # Scale IR by 4 and cap at 200
+            ir_dists.append(min(p['ir'] * 4, 200))
+            # Cap Ping at 200
+            ping_dists.append(min(p['ping'], 200))
+
+        # Plot IR in Red
+        self.ax.plot(angles, ir_dists, color='r', label='IR (x4)')
+        
+        # Plot Ping in Blue
+        self.ax.plot(angles, ping_dists, color='b', label='Ping')
+        
+        self.ax.legend(loc='lower left', bbox_to_anchor=(-0.1, -0.2), fontsize='small')
+        self.polar_canvas.draw()
 
     def to_screen(self, x, y):
         margin = 50
