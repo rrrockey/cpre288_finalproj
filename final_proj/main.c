@@ -350,7 +350,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         }
 
 
-        move_forward(sensor_data, moveScanData, scanData->driveDistHorizontal); // - scanData->averageAdc); //sideways
+        move_forward(sensor_data, moveScanData, scanData->driveDistHorizontal, compassVals); // - scanData->averageAdc); //sideways
         update_distance(moveScanData->distanceTraveled, directionGlobal);
         if(moveScanData->status == BOUNDARY){
 //            re_center_tape(sensor_data, &moveScanData);
@@ -543,12 +543,15 @@ int main(void)
 
         if (c == 'w')
         {
-            move_forward(sensor_data, &moveScanData, 50);
-            straight_correct(sensor_data, &compassVals);
+            move_forward(sensor_data, &moveScanData, 50, &compassVals);
+           // straight_correct(sensor_data, &compassVals);
             head =  read_euler_heading(BNO055_ADDRESS_B) / 16;
-
+//            compassVals.headPosX = head;
+//                    compassVals.headNegY = ((head + 90) % 360);
+//                    compassVals.headNegX = ((head + 180) % 360);
+//                    compassVals.headPosY = ((head + 270) % 360);
             update_distance(50, directionGlobal);
-            lcd_printf("head after move forward %d \n OI angle: %.2f ", head, sensor_data->angle);
+          //  lcd_printf("head after move forward %d \n OI angle: %.2f ", head, sensor_data->angle);
         }
         else if (c == 'a')
         {
@@ -562,15 +565,19 @@ int main(void)
 
             rotate_degrees(directionGlobal, -90, sensor_data, &moveScanData, &compassVals);
             angle_correct(sensor_data, &moveScanData, directionGlobal, &compassVals);
-            lcd_printf("OI angle: %.2f", sensor_data->angle);
+          //  lcd_printf("OI angle: %.2f", sensor_data->angle);
 
         }
         else if (c == 's')
         {
             move_backward(sensor_data, 50);
-            straight_correct(sensor_data, &compassVals);
+          //  straight_correct(sensor_data, &compassVals);
 
             head =  read_euler_heading(BNO055_ADDRESS_B) / 16;
+//            compassVals.headPosX = head;
+//                    compassVals.headNegY = ((head + 90) % 360);
+//                    compassVals.headNegX = ((head + 180) % 360);
+//                    compassVals.headPosY = ((head + 270) % 360);
             update_distance(-50, directionGlobal);
             lcd_printf("head after move backward %d \n OI angle: %.2f ", head, sensor_data->angle);
         }

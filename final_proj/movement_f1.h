@@ -31,7 +31,7 @@ typedef struct {
 
 
 
-void move_forward(oi_t *sensor_data, move_scan_t *moveData, int cm);
+void move_forward(oi_t *sensor_data, move_scan_t *moveData, int cm, compassVals *compassVals);
 
 double move_backward(oi_t *sensor_data, int cm);
 
@@ -54,4 +54,4 @@ void move_forward_slow(oi_t *sensor_data, move_scan_t *moveScanData, int cm);
 
 void angle_correct(oi_t *sensor_data, move_scan_t *moveScanData, int directionGlobal, compassVals *compassVals);
 
-void straight_correct(oi_t *sensor_data, compassVals *compassVals);
+void straight_correct(oi_t *sensor_data, compassVals *compassVals, double angleTurned);

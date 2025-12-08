@@ -17,11 +17,12 @@ volatile double TURN_CORRECTION = 1;
 volatile double TURN_CORRECTION_180 = 1;
 char buffer[100];
 
-void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm)
+void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassVals *compassVals)
 {
     moveScanData->status = CLEAR;
     moveScanData->distanceTraveled = 0;
     double distanceTraveled = 0;
+    double angleTurned = 0;
     oi_setWheels(150, 150);
 
     while (distanceTraveled < cm * MM_IN_CM)
@@ -63,8 +64,9 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm)
         }
 
         distanceTraveled += sensor_data->distance;
+        angleTurned += sensor_data->angle;
     }
-
+    straight_correct(sensor_data, compassVals, angleTurned);
     oi_setWheels(0, 0);
     timer_waitMillis(300);
 
@@ -85,6 +87,7 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
     moveScanData->status = CLEAR;
     moveScanData->distanceTraveled = 0;
     double distanceTraveled = 0;
+
     oi_setWheels(75, 75);
     float current_angle = low_angle;
     int IR_val = 0;
@@ -143,6 +146,7 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
     timer_waitMillis(300);
     moveScanData->distanceTraveled = distanceTraveled / 10; // get cm
 
+
 #if DEBUG
     printf("Moved forward: %.2f mm\n", distanceTraveled);
 #endif
@@ -165,16 +169,19 @@ double move_to_bounds(oi_t *sensor_data){
 
 double move_backward(oi_t *sensor_data, int cm) {
     double distanceTraveled = 0;
+    double angleTurned = 0;
     oi_setWheels(-200, -200);
 
     while (distanceTraveled > -cm * MM_IN_CM) {
         oi_update(sensor_data);
         distanceTraveled += sensor_data->distance;
+        angleTurned += sensor_data->angle;
     }
 
     oi_setWheels(0, 0);
     timer_waitMillis(300);
-
+    sprintf(buffer, "angle turned in move backward: %.2f\r\n", angleTurned);
+    uart_sendStr(buffer);
 #if DEBUG
     printf("Moved backward: %.2f mm\n", distanceTraveled);
 #endif
@@ -182,21 +189,6 @@ double move_backward(oi_t *sensor_data, int cm) {
     return -distanceTraveled; // Return positive value of distance moved
 }
 
-
-//void avoid_obstacle(oi_t *sensor_data, int bump_status) {
-//
-//    if (bump_status == LEFT_BUMPED) {
-//        move_backward(sensor_data, 4);
-//        turn_clockwise(sensor_data, 75);
-//        move_forward(sensor_data, 33);
-//        turn_counterclockwise(sensor_data, 120);
-//    } else if (bump_status == RIGHT_BUMPED) {
-//        move_backward(sensor_data, 4);
-//        turn_counterclockwise(sensor_data, 75);
-//        move_forward(sensor_data, 33);
-//        turn_clockwise(sensor_data, 120);
-//    }
-//}
 
 
 void turn_clockwise(oi_t *sensor_data, int degrees) {
@@ -218,7 +210,8 @@ void turn_clockwise(oi_t *sensor_data, int degrees) {
 
         angleTurned += sensor_data->angle;
     }
-
+    sprintf(buffer, "angle turned: %.2f\r\n", angleTurned);
+    uart_sendStr(buffer);
     oi_setWheels(0, 0);
     timer_waitMillis(300);
 }
@@ -238,7 +231,8 @@ void turn_counterclockwise(oi_t *sensor_data, int degrees) {
         oi_update(sensor_data);
         angleTurned += sensor_data->angle;
     }
-
+    sprintf(buffer, "angle turned: %.2f\r\n", angleTurned);
+    uart_sendStr(buffer);
     oi_setWheels(0, 0);
     timer_waitMillis(300);
 }
@@ -315,55 +309,40 @@ void re_center_tape(oi_t *sensor_data, move_scan_t *moveScanData) {
     }
 }
 
-void straight_correct(oi_t *sensor_data, compassVals *compassVals) {
+void straight_correct(oi_t *sensor_data, compassVals *compassVals, double angleTurned) {
     timer_waitMillis(1000);
 
     int currentAngle =  read_euler_heading(BNO055_ADDRESS_B) / 16;
-    int difference = currentAngle - compassVals->headPosX;
-    int clockwise = 0;
+    int goingTo = (currentAngle + (int) angleTurned) % 360;
+    lcd_printf("head: %d\n going: %d\n angleTurned %d", currentAngle, goingTo, (int) angleTurned);
 
-
-    if(difference > 0 || difference < -180) {
-                clockwise = 0;
-
-            }
-            else{
-                clockwise = 1;
-            }
-
-    if(!clockwise){
-
-            oi_setWheels(15, -15);
-
-            while (currentAngle != compassVals->headPosX) {
-                lcd_printf("current: %d going %d\n dg: %d\nclockwise %d", currentAngle, compassVals->headPosX, clockwise);
-                oi_update(sensor_data);
-
-                currentAngle = read_euler_heading(BNO055_ADDRESS_B) / 16;
-            }
-
-            oi_setWheels(0, 0);
-            timer_waitMillis(300);
+    if (angleTurned > 0){
+        oi_setWheels(-15, 15);
+        while (!(currentAngle <= ((goingTo + 1) % 360) && currentAngle >= ((goingTo - 1) % 360)))
+        {
+            oi_update(sensor_data);
+            currentAngle = read_euler_heading(BNO055_ADDRESS_B) / 16;
+           // lcd_printf("head: %d \n going: %d", currentAngle, goingTo);
         }
-        else{
-            oi_setWheels(-15, 15);
-
-            while (currentAngle != compassVals->headPosX) {
-                lcd_printf("current: %d going %d\n dg: %d\nclockwise %d", currentAngle, compassVals->headPosX, clockwise);
-                        oi_update(sensor_data);
-
-                        currentAngle = read_euler_heading(BNO055_ADDRESS_B) / 16;
-                    }
-                    oi_setWheels(0, 0);
-
-                    timer_waitMillis(300);
+        oi_setWheels(0,0);
+    } else if (angleTurned < 0) {
+        oi_setWheels(-15, 15);
+            while(!(currentAngle <= ((goingTo + 1) % 360) && currentAngle >= ((goingTo - 1) % 360)))
+            {
+            oi_update(sensor_data);
+            currentAngle = read_euler_heading(BNO055_ADDRESS_B) / 16;
+            //lcd_printf("head: %d \n going: %d", currentAngle, goingTo);
         }
-
+            oi_setWheels(0,0);
+    }
 
     compassVals->headPosX = currentAngle;
     compassVals->headNegY = ((currentAngle + 90) % 360);
     compassVals->headNegX = ((currentAngle + 180) % 360);
     compassVals->headPosY = ((currentAngle + 270) % 360);
+
+    lcd_printf("headX: %d\n negY: %d\n negX: %d\n headY: %d\n ", compassVals->headPosX, compassVals->headNegY, compassVals->headNegX, compassVals->headPosY);
+
 }
 
 void angle_correct(oi_t *sensor_data, move_scan_t *moveScanData, int directionGlobal, compassVals *compassVals) {
