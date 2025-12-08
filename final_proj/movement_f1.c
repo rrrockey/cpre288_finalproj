@@ -11,22 +11,26 @@
 
 #define WHITETAPE 2650
 #define BLACKTAPE 500
-
+#define POSITIVE_X 0
+#define POSITIVE_Y 1
+#define NEGATIVE_X 2
+#define NEGATIVE_Y 3
 
 volatile double TURN_CORRECTION = 1;
 volatile double TURN_CORRECTION_180 = 1;
 char buffer[100];
 
-void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassVals *compassVals)
+void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassVals *compassVals, int directionGlobal)
 {
     moveScanData->status = CLEAR;
     moveScanData->distanceTraveled = 0;
     double distanceTraveled = 0;
     double angleTurned = 0;
-    oi_setWheels(150, 150);
+    oi_setWheels(200, 200);
 
     while (distanceTraveled < cm * MM_IN_CM)
     {
+
         oi_update(sensor_data);
 
         if (sensor_data->bumpLeft || sensor_data->bumpRight)
@@ -66,7 +70,7 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassV
         distanceTraveled += sensor_data->distance;
         angleTurned += sensor_data->angle;
     }
-    straight_correct(sensor_data, compassVals, angleTurned);
+    straight_correct(sensor_data, compassVals, angleTurned, directionGlobal);
     oi_setWheels(0, 0);
     timer_waitMillis(300);
 
@@ -309,12 +313,18 @@ void re_center_tape(oi_t *sensor_data, move_scan_t *moveScanData) {
     }
 }
 
-void straight_correct(oi_t *sensor_data, compassVals *compassVals, double angleTurned) {
+void straight_correct(oi_t *sensor_data, compassVals *compassVals, double angleTurned, int directionGlobal) {
     timer_waitMillis(1000);
+
+    sprintf(buffer, "before headX: %d negY: %d negX: %d headY: %d\r\n ", compassVals->headPosX, compassVals->headNegY, compassVals->headNegX, compassVals->headPosY);
+    uart_sendStr(buffer);
 
     int currentAngle =  read_euler_heading(BNO055_ADDRESS_B) / 16;
     int goingTo = (currentAngle + (int) angleTurned) % 360;
-    lcd_printf("head: %d\n going: %d\n angleTurned %d", currentAngle, goingTo, (int) angleTurned);
+    if (goingTo < 0){
+        goingTo += 360;
+    }
+
 
     if (angleTurned > 0){
         oi_setWheels(-15, 15);
@@ -322,136 +332,101 @@ void straight_correct(oi_t *sensor_data, compassVals *compassVals, double angleT
         {
             oi_update(sensor_data);
             currentAngle = read_euler_heading(BNO055_ADDRESS_B) / 16;
-           // lcd_printf("head: %d \n going: %d", currentAngle, goingTo);
+            lcd_printf("current: %d \n going: %d \n angleTurned %d", currentAngle, goingTo, (int) angleTurned);
         }
         oi_setWheels(0,0);
     } else if (angleTurned < 0) {
-        oi_setWheels(-15, 15);
+        oi_setWheels(15, -15);
             while(!(currentAngle <= ((goingTo + 1) % 360) && currentAngle >= ((goingTo - 1) % 360)))
             {
             oi_update(sensor_data);
             currentAngle = read_euler_heading(BNO055_ADDRESS_B) / 16;
-            //lcd_printf("head: %d \n going: %d", currentAngle, goingTo);
+            lcd_printf("current: %d \n going: %d \n angleTurned %d", currentAngle, goingTo, (int) angleTurned);
         }
             oi_setWheels(0,0);
     }
 
-    compassVals->headPosX = currentAngle;
-    compassVals->headNegY = ((currentAngle + 90) % 360);
-    compassVals->headNegX = ((currentAngle + 180) % 360);
-    compassVals->headPosY = ((currentAngle + 270) % 360);
+    sprintf(buffer, "after headX: %d negY: %d negX: %d headY: %d\r\n ", compassVals->headPosX, compassVals->headNegY, compassVals->headNegX, compassVals->headPosY);
+    uart_sendStr(buffer);
 
-    lcd_printf("headX: %d\n negY: %d\n negX: %d\n headY: %d\n ", compassVals->headPosX, compassVals->headNegY, compassVals->headNegX, compassVals->headPosY);
+    currentAngle = read_euler_heading(BNO055_ADDRESS_B) / 16;
+    if (directionGlobal == POSITIVE_X) {
+        compassVals->headPosX = currentAngle;
+        compassVals->headNegY = ((currentAngle + 90) % 360);
+        compassVals->headNegX = ((currentAngle + 180) % 360);
+        compassVals->headPosY = ((currentAngle + 270) % 360);
+    }
+    if (directionGlobal == POSITIVE_Y) {
+        compassVals->headPosY = currentAngle;
+        compassVals->headPosX = ((currentAngle + 90) % 360);
+        compassVals->headNegY = ((currentAngle + 180) % 360);
+        compassVals->headNegX = ((currentAngle + 270) % 360);
+    }
+    if (directionGlobal == NEGATIVE_X) {
+        compassVals->headNegX = currentAngle;
+        compassVals->headPosY = ((currentAngle + 90) % 360);
+        compassVals->headPosX = ((currentAngle + 180) % 360);
+        compassVals->headNegY = ((currentAngle + 270) % 360);
+    }
+    if (directionGlobal == POSITIVE_Y) {
+        compassVals->headNegY = currentAngle;
+        compassVals->headNegX = ((currentAngle + 90) % 360);
+        compassVals->headPosY = ((currentAngle + 180) % 360);
+        compassVals->headPosX = ((currentAngle + 270) % 360);
+
+    }
+//    compassVals->headPosX = currentAngle;
+//    compassVals->headNegY = ((currentAngle + 90) % 360);
+//    compassVals->headNegX = ((currentAngle + 180) % 360);
+//    compassVals->headPosY = ((currentAngle + 270) % 360);
+
+    lcd_printf("after new head: headX: %d\n negY: %d\n negX: %d\n headY: %d\n ", compassVals->headPosX, compassVals->headNegY, compassVals->headNegX, compassVals->headPosY);
 
 }
 
 void angle_correct(oi_t *sensor_data, move_scan_t *moveScanData, int directionGlobal, compassVals *compassVals) {
 
     timer_waitMillis(1000);
-
+    sprintf(buffer, "angle correct before headX: %d negY: %d negX: %d headY: %d\r\n ", compassVals->headPosX, compassVals->headNegY, compassVals->headNegX, compassVals->headPosY);
+        uart_sendStr(buffer);
 
     int currentDirection = read_euler_heading(BNO055_ADDRESS_B) / 16;
-    int clockwise = 0;
+
 
     int intendedDirection;
     if (directionGlobal == 0) {
         intendedDirection = compassVals->headPosX;
-        if(currentDirection - compassVals->headPosX > 0 || currentDirection-compassVals->headPosX < -180) {
-            clockwise = 0;
-
-        }
-        else{
-            clockwise = 1;
-        }
-
     }
     if (directionGlobal == 1) {
         intendedDirection = compassVals->headPosY;
-        if(currentDirection - compassVals->headPosY > 0  || currentDirection-compassVals->headPosY < -180) {
-            clockwise = 0;
-
-        }
-        else{
-            clockwise = 1;
-        }
-
     }
     if (directionGlobal == 2) {
         intendedDirection = compassVals->headNegX;
-        if(currentDirection - compassVals->headNegX > 0  || currentDirection-compassVals->headNegX < -180) {
-            clockwise = 0;
-
-        }
-        if(currentDirection - compassVals->headNegX > 0  /*|| currentDirection-compassVals->headNegX < -180*/) {
-            return;
-        }
-        else{
-            clockwise = 1;
-        }
-
     }
     if (directionGlobal == 3) {
         intendedDirection = compassVals->headNegY;
-        if(currentDirection - compassVals->headNegY > 0  || currentDirection-compassVals->headNegY < -180){
-            clockwise = 0;
-
-        }
-        else if(currentDirection - compassVals->headNegY == 0/*  || currentDirection-compassVals->headNegY == -180*/){
-            return;
-        }
-        else{
-            clockwise = 1;
-        }
-
-    }
-    if(!clockwise){
-
-        oi_setWheels(15, -15);
-
-        while (currentDirection != intendedDirection) {
-            lcd_printf("current: %d going %d\n dg: %d\nclockwise %d", currentDirection, intendedDirection, directionGlobal, clockwise);
-            oi_update(sensor_data);
-
-            currentDirection = read_euler_heading(BNO055_ADDRESS_B) / 16;
-        }
-
-        oi_setWheels(0, 0);
-        timer_waitMillis(300);
-    }
-    else{
-        oi_setWheels(-15, 15);
-
-        while (currentDirection != intendedDirection) {
-            lcd_printf("current: %d going %d\n dg: %d\nclockwise %d", currentDirection, intendedDirection, directionGlobal, clockwise);
-                    oi_update(sensor_data);
-
-                    currentDirection = read_euler_heading(BNO055_ADDRESS_B) / 16;
-                }
-                oi_setWheels(0, 0);
-
-                timer_waitMillis(300);
     }
 
+    while(currentDirection != intendedDirection){
 
+        if (currentDirection - intendedDirection > 0 || currentDirection - intendedDirection < -180)
+        {  //counter clockwise
+            oi_setWheels(15, -15);
+        }
+        else
+        {
+            oi_setWheels(-15, 15);
+        }
 
-//    int point = (currentDirection - directionGlobalCompass ) % 360; //finding halfway for if statements
-//
-//
-//
-//
-//    while(currentDirection != directionGlobalCompass) {
-//        lcd_printf("current: %d \nGoing: %d dg %d\n point: %d\nheadVal %d", currentDirection, directionGlobalCompass, directionGlobal, point, headVal);
-//
-//        if(point > 0) {
-//            turn_counterclockwise(sensor_data, 2);
-//        } else {
-//            turn_clockwise(sensor_data, 2);
-//        }
-//
-//
-//        currentDirection = read_euler_heading(BNO055_ADDRESS_B) / 16;
-//        point = (currentDirection - directionGlobalCompass ) % 360;
-//    }
+        lcd_printf("current: %d going %d\n dg: %d", currentDirection, intendedDirection, directionGlobal);
+
+        oi_update(sensor_data);
+        currentDirection = read_euler_heading(BNO055_ADDRESS_B) / 16;
+    }
+    sprintf(buffer, "angle Correct after headX: %d negY: %d negX: %d headY: %d\r\n ", compassVals->headPosX, compassVals->headNegY, compassVals->headNegX, compassVals->headPosY);
+        uart_sendStr(buffer);
+    oi_setWheels(0, 0);
+    timer_waitMillis(300);
 
 
 }
