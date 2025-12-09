@@ -65,15 +65,12 @@ void rotate_degrees(int angle/*global direction*/, int turnChange/*change in ang
     int startAngle = directionGlobal;
 
     int i =0;
-    sprintf(buffer, "before rotate value %d\r\n", read_euler_heading(BNO055_ADDRESS_B) / 16);
-                        uart_sendStr(buffer);
+
     if(angleChange>0){
         angle+= angleChange;
         angle %=4;
 
-        //turn_counterclockwise(sensor_data, angleChange*90);
-
-        for( i =0; i<1; i++){
+        for( i = 0; i < 1; i++){
             turn_counterclockwise(sensor_data, angleChange * 90);
         }
     }
@@ -100,8 +97,7 @@ void rotate_degrees(int angle/*global direction*/, int turnChange/*change in ang
     }
     sprintf(buffer, "TURN %d %d\r\n", startAngle, angle);
                 uart_sendStr(buffer);
-                sprintf(buffer, "after rotate value \r\n%d", read_euler_heading(BNO055_ADDRESS_B) / 16);
-                                    uart_sendStr(buffer);
+
     directionGlobal = angle;
     angle_correct(sensor_data, moveScanData, directionGlobal, compassVals);
 }
@@ -152,8 +148,6 @@ void update_distance(double distance, int direction ){
 
                 uart_sendStr(buffer);
 
-                sprintf(buffer, "value %d", read_euler_heading(BNO055_ADDRESS_B) / 16);
-                uart_sendStr(buffer);
 
 }
 
@@ -231,13 +225,13 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
         sprintf(buffer, "No objects found!\r\n");
                uart_sendStr(buffer);
 
-//        scanData->driveDist = 50 + scanData->adcWidth; //need to find a fix for this logic, current just a hard patched 15 cm + the adcWidth (12/1)
+
 
         scanData->averageAdc = 200;
         scanData->averagePing = 200;
 
-        sprintf(buffer, "no object found:  \r\naverage width: %.2f, \r\ndrive dist hori %.2f, \r\nddv %.2f \r\nobject count: %d \r\n", scanData->adcWidth, scanData->driveDistHorizontal, scanData->driveDistVertical, adcTickAmnt);
-            uart_sendStr(buffer);
+//        sprintf(buffer, "no object found:  \r\naverage width: %.2f, \r\ndrive dist hori %.2f, \r\nddv %.2f \r\nobject count: %d \r\n", scanData->adcWidth, scanData->driveDistHorizontal, scanData->driveDistVertical, adcTickAmnt);
+//            uart_sendStr(buffer);
         return;
     }
     averageADC = averageADC / ((double)(adcTickAmnt));
@@ -308,18 +302,18 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
         double tempAng = scanData->averageAngle - 180;
         sprintf(buffer, "averageADC %.2f  cos (tempAng)%.2f tempAng %.2f pillar width %d\r\n", (scanData->averageAdc), cos(tempAng * M_PI / 180.0), tempAng, pillarWidth);
         uart_sendStr(buffer);
-        scanData->driveDistHorizontal = (scanData->averageAdc) * cos(tempAng * M_PI / 180.0) + pillarWidth * cos(tempAng * M_PI / 180.0) + (cybotLength / 1.5);
+        scanData->driveDistHorizontal = (scanData->averageAdc) * cos(tempAng * M_PI / 180.0) + pillarWidth * cos(tempAng * M_PI / 180.0) + (cybotLength / 2);
     }
     else{
         double tempAng = scanData->averageAngle - 135;
         scanData->driveDistHorizontal = pillarWidth * cos(tempAng * M_PI / 180.0) + (cybotLength / 4);
     }
 
-    scanData->driveDistVertical = (scanData->averageAdc)*sin(scanData->averageAngle * M_PI / 180.0) + pillarWidth + (cybotLength / 1.5);
+    scanData->driveDistVertical = (scanData->averageAdc)*sin(scanData->averageAngle * M_PI / 180.0) + pillarWidth + (cybotLength / 2);
 
-
-    sprintf(buffer, "Final output:  average: %.2f, drive dist Hori %.2f, drive dist Vert %.2f,  pillar Width: %d \r\n", averageADC, scanData->driveDistHorizontal, scanData->driveDistVertical, pillarWidth);
-    uart_sendStr(buffer);
+//
+//    sprintf(buffer, "Final output:  average: %.2f, drive dist Hori %.2f, drive dist Vert %.2f,  pillar Width: %d \r\n", averageADC, scanData->driveDistHorizontal, scanData->driveDistVertical, pillarWidth);
+//    uart_sendStr(buffer);
 
 
 
@@ -329,19 +323,15 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
 int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanData, compassVals *compassVals)
 {
     int result;
-    //update_distance(driveDist, direction);
+
     rotate_degrees(directionGlobal, 90, sensor_data, moveScanData, compassVals);
     scan_cone(40, 140, moveScanData, scanData);
 
 
-        sprintf(buffer, "status when entering avoid object: %d\r\n", moveScanData->status);
-        uart_sendStr(buffer);
 
     while(moveScanData->status != BOUNDARY){
 
-        sprintf(buffer, "adcValue in recursion: %.2f\r\n", scanData->averageAdc);
 
-        uart_sendStr(buffer);
 
         if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist/2)
         {
@@ -360,7 +350,8 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         else if(moveScanData->status == CLIFF || moveScanData->status == BUMPLEFT || moveScanData->status == BUMPRIGHT){
                 sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
                 uart_sendStr(buffer);
-            move_backward(sensor_data, 6);
+            move_backward(sensor_data, compassVals, 6,  directionGlobal);
+            moveScanData->status = CLEAR;
             update_distance(-6, directionGlobal);
 
                 result = avoidObject(sensor_data, moveScanData, scanData, compassVals);
@@ -368,7 +359,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
 
             }
 
-    //    update_distance(scanData->driveDist / 2, directionGlobal);
+
 
         rotate_degrees(directionGlobal, -90, sensor_data, moveScanData, compassVals);
 
@@ -381,7 +372,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         }
 
 
-        move_scan(sensor_data, moveScanData, scanData->driveDistVertical, 40, 140); //straight
+        move_scan(sensor_data, moveScanData, scanData->driveDistVertical, 40, 140, compassVals, directionGlobal); //straight
         update_distance(moveScanData->distanceTraveled, directionGlobal);
         if(moveScanData->status == BOUNDARY){
 //            re_center_tape(sensor_data, &moveScanData);
@@ -389,7 +380,8 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         }
 
         else if(moveScanData->status == CLIFF ||moveScanData->status == BUMPLEFT || moveScanData->status == BUMPRIGHT){
-                move_backward(sensor_data, 6);
+                move_backward(sensor_data, compassVals, 6, directionGlobal);
+                moveScanData->status = CLEAR;
                 update_distance(-6, directionGlobal);
                 sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
                                 uart_sendStr(buffer);
@@ -399,7 +391,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
 
             }
 
-    //    update_distance(scanData->driveDist, directionGlobal);
+
 
         rotate_degrees(directionGlobal, -90, sensor_data, moveScanData, compassVals);
 
@@ -411,14 +403,15 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         }
 
 
-        move_scan(sensor_data, moveScanData, scanData->driveDistHorizontal, 40, 140); //straight
+        move_scan(sensor_data, moveScanData, scanData->driveDistHorizontal, 40, 140, compassVals, directionGlobal); //straight
         update_distance(moveScanData->distanceTraveled, directionGlobal);
         if(moveScanData->status == BOUNDARY){
 //            re_center_tape(sensor_data, &moveScanData);
             continue;
         }
         else if(moveScanData->status == CLIFF || moveScanData->status == BUMPLEFT || moveScanData->status == BUMPRIGHT){
-                move_backward(sensor_data, 6);
+                move_backward(sensor_data, compassVals, 6,  directionGlobal);
+                moveScanData->status = CLEAR;
                 update_distance(-6, directionGlobal);
                 sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
                                 uart_sendStr(buffer);
@@ -456,14 +449,14 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
     while (moveScanData->status != BOUNDARY)
     {
         scan_cone(40, 140, moveScanData, scanData);
-        if (scanData->averageAdc < 25)
+        if (scanData->averageAdc < 20)
         {
             result = avoidObject(sensor_data, moveScanData, scanData, compassVals);
             if (result) return 1;
         }
         else
         {
-           move_scan(sensor_data, moveScanData, 25, 40, 140);
+           move_scan(sensor_data, moveScanData, 25, 40, 140, compassVals, directionGlobal);
            update_distance(moveScanData->distanceTraveled, directionGlobal);
         }
     }
@@ -543,9 +536,9 @@ int main(void)
 
         if (c == 'w')
         {
-            move_forward(sensor_data, &moveScanData, 50, &compassVals, directionGlobal);
+            move_forward(sensor_data, &moveScanData, 30, &compassVals, directionGlobal);
             update_distance(50, directionGlobal);
-          //  lcd_printf("head after move forward %d \n OI angle: %.2f ", head, sensor_data->angle);
+
         }
         else if (c == 'a')
         {
@@ -559,7 +552,7 @@ int main(void)
         }
         else if (c == 's')
         {
-            move_backward(sensor_data, 50);
+            move_backward(sensor_data, &compassVals, 30, directionGlobal);
 
             update_distance(-50, directionGlobal);
 
@@ -567,8 +560,6 @@ int main(void)
         else if (c == 'g')
         {
             BNO055_Init();
-
-
             while (b != 1) {
                 head =  read_euler_heading(BNO055_ADDRESS_B) / 16;
                 b = button_getButton();
@@ -577,11 +568,18 @@ int main(void)
 
             }
 
+
             head =  read_euler_heading(BNO055_ADDRESS_B) / 16;
             compassVals.headPosX = head;
             compassVals.headNegY = ((head + 90) % 360);
             compassVals.headNegX = ((head + 180) % 360);
             compassVals.headPosY = ((head + 270) % 360);
+            sprintf(buffer, "after headX set in main: posX %d negY: %d negX: %d headY: %d\r\n ", compassVals.headPosX, compassVals.headNegY, compassVals.headNegX, compassVals.headPosY);
+            uart_sendStr(buffer);
+
+            horizontalPos = 0;
+            verticalPos = 0;
+            directionGlobal = 0;
 
         }
         else if (c == 'h')
@@ -612,8 +610,7 @@ int main(void)
                {
        uart_sendStr("received z, calibrating...\r\n");
        calibrate_turn(sensor_data);
-       //            sprintf(buffer, "correction: %.2f\r\n", correction);
-       //            uart_sendStr(buffer);
+
                }
 
         else if (c == 'm')
@@ -625,10 +622,10 @@ int main(void)
 
                 // scan before movement
                 scan_cone(40, 140, &moveScanData, &scanData);
-//                 estimation = 0.0000228813 * (IR_val * IR_val)- 0.0981288 * IR_val + 115.33455;
+
 
                 int driveDist = fmin(200, scanData.averageAdc);
-                move_scan(sensor_data, &moveScanData, driveDist, 40, 140);
+                move_scan(sensor_data, &moveScanData, driveDist, 40, 140, &compassVals, directionGlobal);
 
                 int status = moveScanData.status;
                 double distanceChange = moveScanData.distanceTraveled;
@@ -637,37 +634,19 @@ int main(void)
 
                     scan_cone(40, 140, &moveScanData, &scanData);
                 }
-//                sprintf(buffer, "scan data ADC %.2f, PING  %d \r\n", scanData.averageAdc, scanData.averagePing);
-//                uart_sendStr(buffer);
+
                 if(scanData.averageAdc < 20){
 
 
-                    if (!turnStatus)
-                        {
-                            face_direction(directionGlobal, NEGATIVE_Y, sensor_data, &moveScanData, &compassVals);
-                        }
-                        else if (turnStatus == 1)
-                        {
 
-                            face_direction(directionGlobal, POSITIVE_X, sensor_data, &moveScanData, &compassVals);
-                        }
-                        else if (turnStatus == 2)
-                        {
-
-                            face_direction(directionGlobal, POSITIVE_Y, sensor_data, &moveScanData, &compassVals);
-                        }
-                        else if (turnStatus == 3)
-                        {
-                            face_direction(directionGlobal, NEGATIVE_X, sensor_data, &moveScanData, &compassVals);
-                        }
-                    re_center_tape(sensor_data, &moveScanData);
+                    avoidObject(sensor_data, &moveScanData, &scanData, &compassVals);
                     sprintf(buffer, "Broke recursion %d <---------------------------\r\n", directionGlobal);
                     uart_sendStr(buffer);
 
                 }
                 else if (status == BOUNDARY)
                 {
-                    re_center_tape(sensor_data, &moveScanData);
+
                     if (!turnStatus) // first row
                     {
 
@@ -707,7 +686,9 @@ int main(void)
                 }
                 else if(status == CLIFF || status == BUMPLEFT || status == BUMPRIGHT){
 
-                    move_backward(sensor_data, 6);
+                    move_backward(sensor_data, &compassVals, 6, directionGlobal);
+                    lcd_printf("finished perimeter!\r\n");
+                    moveScanData.status = CLEAR;
                     update_distance(-6, directionGlobal);
                     avoidObject(sensor_data, &moveScanData, &scanData, &compassVals);
                 }

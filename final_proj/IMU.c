@@ -114,22 +114,22 @@ void BNO055_Init(void)
     uint8_t sys_cal = 0, accel_cal = 0, mag_cal = 0, gyro_cal = 0;
 
     lcd_printf("Calibrating...\n");
-    while (sys_cal != 3 || gyro_cal != 3 || accel_cal != 3  || mag_cal != 3)
-    {
-        // Read the calibration status
-        I2C1_Read(BNO055_ADDRESS_B, 0x35, &cal_status, 1);
-        sys_cal = (cal_status >> 6) & 0x03;
-        gyro_cal = (cal_status >> 4) & 0x03;
-        accel_cal = (cal_status >> 2) & 0x03;
-        mag_cal = cal_status & 0x03;
-
-        // Display calibration status on LCD
-        lcd_printf("Calibrating...\nSys:%d G:%d A:%d M:%d", sys_cal, gyro_cal,
-                   accel_cal, mag_cal);
-
-        // Wait for a short period before checking again
-        timer_waitMillis(500);
-    }
+//    while (sys_cal != 3 || gyro_cal != 3 || accel_cal != 3  || mag_cal != 3)
+//    {
+//        // Read the calibration status
+//        I2C1_Read(BNO055_ADDRESS_B, 0x35, &cal_status, 1);
+//        sys_cal = (cal_status >> 6) & 0x03;
+//        gyro_cal = (cal_status >> 4) & 0x03;
+//        accel_cal = (cal_status >> 2) & 0x03;
+//        mag_cal = cal_status & 0x03;
+//
+//        // Display calibration status on LCD
+//        lcd_printf("Calibrating...\nSys:%d G:%d A:%d M:%d", sys_cal, gyro_cal,
+//                   accel_cal, mag_cal);
+//
+//        // Wait for a short period before checking again
+//        timer_waitMillis(500);
+//    }
 // Calibration is complete
     lcd_printf("Calibration Complete\nSys:%d G:%d A:%d M:%d", sys_cal, gyro_cal,
                accel_cal, mag_cal);

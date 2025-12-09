@@ -33,7 +33,7 @@ typedef struct {
 
 void move_forward(oi_t *sensor_data, move_scan_t *moveData, int cm, compassVals *compassVals, int directionGlobal);
 
-double move_backward(oi_t *sensor_data, int cm);
+double move_backward(oi_t *sensor_data, compassVals *compassVals, int cm, int directionGlobal);
 
 void turn_clockwise(oi_t *sensor_data, int degrees);
 
@@ -45,12 +45,13 @@ void calibrate_forward_movement(oi_t *sensor_data);
 
 void calibrate_turning(oi_t *sensor_data);
 
-void move_scan(oi_t *sensor_data, move_scan_t* moveScanData, int cm, float low_angle, float high_angle);
+void move_scan(oi_t *sensor_data, move_scan_t* moveScanData, int cm, float low_angle, float high_angle, compassVals *compassVals, int directionGlobal);
 
 void calibrate_turn(oi_t *sensor_data);
 
 void re_center_tape(oi_t *sensor_data, move_scan_t *moveScanData);
-void move_forward_slow(oi_t *sensor_data, move_scan_t *moveScanData, int cm);
+
+void move_forward_slow(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassVals *compassVals, int directionGlobal);
 
 void angle_correct(oi_t *sensor_data, move_scan_t *moveScanData, int directionGlobal, compassVals *compassVals);
 
