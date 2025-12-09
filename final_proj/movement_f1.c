@@ -26,7 +26,7 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassV
     moveScanData->distanceTraveled = 0;
     double distanceTraveled = 0;
     double angleTurned = 0;
-    oi_setWheels(200, 200);
+    oi_setWheels(((int16_t)(200*RIGHTWHEELSCALAR)), ((int16_t)(200*LEFTWHEELSCALAR)));
 
     while (distanceTraveled < cm * MM_IN_CM)
     {
@@ -93,7 +93,7 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
     double distanceTraveled = 0;
     double angleTurned = 0;
 
-    oi_setWheels(75, 75);
+    oi_setWheels( ((int16_t)(75*RIGHTWHEELSCALAR)),  ((int16_t)(75*LEFTWHEELSCALAR)));
     float current_angle = low_angle;
     int IR_val = 0;
     double estimation = 0;
@@ -165,7 +165,7 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
 double move_backward(oi_t *sensor_data, compassVals *compassVals, int cm, int directionGlobal) {
     double distanceTraveled = 0;
     double angleTurned = 0;
-    oi_setWheels(-200, -200);
+    oi_setWheels( ((int16_t)(-200*RIGHTWHEELSCALAR)),  ((int16_t)(-200*LEFTWHEELSCALAR)));
 
     while (distanceTraveled > -cm * MM_IN_CM) {
         oi_update(sensor_data);
@@ -186,6 +186,29 @@ double move_backward(oi_t *sensor_data, compassVals *compassVals, int cm, int di
     return -distanceTraveled; // Return positive value of distance moved
 }
 
+double move_backward_no_straight_correct(oi_t *sensor_data, compassVals *compassVals, int cm, int directionGlobal) {
+    double distanceTraveled = 0;
+    double angleTurned = 0;
+    oi_setWheels( ((int16_t)(-200*RIGHTWHEELSCALAR)),  ((int16_t)(-200*LEFTWHEELSCALAR)));
+
+    while (distanceTraveled > -cm * MM_IN_CM) {
+        oi_update(sensor_data);
+        distanceTraveled += sensor_data->distance;
+        angleTurned += sensor_data->angle;
+    }
+
+
+    oi_setWheels(0, 0);
+//    straight_correct(sensor_data, compassVals, angleTurned, directionGlobal);
+    timer_waitMillis(300);
+    sprintf(buffer, "angle turned in move backward: %.2f\r\n", angleTurned);
+    uart_sendStr(buffer);
+#if DEBUG
+    printf("Moved backward: %.2f mm\n", distanceTraveled);
+#endif
+
+    return -distanceTraveled; // Return positive value of distance moved
+}
 
 
 void turn_clockwise(oi_t *sensor_data, int degrees) {
@@ -250,57 +273,49 @@ void calibrate_turn(oi_t *sensor_data) {
     }
 }
 
-void re_center_tape(oi_t *sensor_data, move_scan_t *moveScanData) {
-////    while(1){
-////        oi_update(sensor_data);
-////        timer_waitMillis(10);
-////        sprintf(buffer, " left %d\n FrontLeft %d\n FrontRight %d\n right %d", sensor_data->cliffLeftSignal, sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal, sensor_data->cliffRightSignal);
-////        lcd_printf(buffer);
-////    }
-//
-//
-//
-//    move_backward(sensor_data, compassVals, 2, directionGlobal);
-//    move_forward_slow(sensor_data, moveScanData, 5);
-//
-//    oi_update(sensor_data);
-//    sprintf(buffer, "in\nFrontLeft %d\n FrontRight %d\n",  sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
-//    lcd_printf(buffer);
-//    if (sensor_data->cliffFrontLeftSignal > WHITETAPE) {
-//
-//        while (1) {
-//
-//            oi_update(sensor_data);
-//            sprintf(buffer, "out\nFrontLeft %d\n FrontRight %d\n",  sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
+void re_center_tape(oi_t *sensor_data, move_scan_t *moveScanData, compassVals *compassVals, int directionGlobal) {
+
+    move_backward_no_straight_correct(sensor_data, compassVals, 2, directionGlobal);
+    move_forward_slow(sensor_data, moveScanData, 50);
+
+    oi_update(sensor_data);
+    sprintf(buffer, "in\nFrontLeft %d\n FrontRight %d\n",  sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
+    lcd_printf(buffer);
+    if (sensor_data->cliffFrontLeftSignal > WHITETAPE) {
+
+        while (1) {
+
+            oi_update(sensor_data);
+            sprintf(buffer, "out\nFrontLeft %d\n FrontRight %d\n",  sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
+            lcd_printf(buffer);
+            if (sensor_data->cliffFrontRightSignal > WHITETAPE) {
+                return;
+            }
+            move_backward_no_straight_correct(sensor_data, compassVals, 2, directionGlobal);
+            turn_counterclockwise(sensor_data, 2);
+            move_forward_slow(sensor_data, moveScanData, 50);
+
+
+        }
+
+    }
+
+    else if (sensor_data->cliffFrontRightSignal > WHITETAPE) {
+        while (1) {
+
+            oi_update(sensor_data);
+            if (sensor_data->cliffFrontLeftSignal > WHITETAPE) {
+                return;
+            }
+            move_backward_no_straight_correct(sensor_data,compassVals, 2,  directionGlobal);
+            turn_clockwise(sensor_data, 2);
+            move_forward_slow(sensor_data, moveScanData, 50);
+
+//            sprintf(buffer, "FrontLeft %d\n FrontRight %d\n",  sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
 //            lcd_printf(buffer);
-//            if (sensor_data->cliffFrontRightSignal > WHITETAPE) {
-//                return;
-//            }
-//            move_backward(sensor_data, compassVals, 2, directionGlobal);
-//            turn_counterclockwise(sensor_data, 2);
-//            move_forward_slow(sensor_data, moveScanData, 50);
-//
-//
-//        }
-//
-//    }
-//
-//    else if (sensor_data->cliffFrontRightSignal > WHITETAPE) {
-//        while (1) {
-//
-//            oi_update(sensor_data);
-//            if (sensor_data->cliffFrontLeftSignal > WHITETAPE) {
-//                return;
-//            }
-//            move_backward(sensor_data, 2 compassVals, directionGlobal);
-//            turn_clockwise(sensor_data, 2);
-//            move_forward_slow(sensor_data, moveScanData, 50);
-//
-////            sprintf(buffer, "FrontLeft %d\n FrontRight %d\n",  sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
-////            lcd_printf(buffer);
-//        }
-//
-//    }
+        }
+
+    }
 }
 
 void straight_correct(oi_t *sensor_data, compassVals *compassVals, double angleTurned, int directionGlobal) {
@@ -446,7 +461,7 @@ void angle_correct(oi_t *sensor_data, move_scan_t *moveScanData, int directionGl
 
 }
 
-void move_forward_slow(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassVals *compassVals, int directionGlobal) {
+void move_forward_slow(oi_t *sensor_data, move_scan_t *moveScanData, int cm) {
     moveScanData->status = CLEAR;
         moveScanData->distanceTraveled = 0;
         double distanceTraveled = 0;
@@ -494,7 +509,7 @@ void move_forward_slow(oi_t *sensor_data, move_scan_t *moveScanData, int cm, com
             angleTurned += sensor_data->distance;
         }
         oi_setWheels(0, 0);
-        straight_correct(sensor_data, compassVals, angleTurned, directionGlobal);
+//        straight_correct(sensor_data, compassVals, angleTurned, directionGlobal);
 
         timer_waitMillis(300);
 

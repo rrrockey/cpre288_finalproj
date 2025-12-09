@@ -3,12 +3,12 @@
 
 #define MM_IN_CM 10 // 10 millimeters in a cm
 
-#define BUMPLEFT 0
 #define BOUNDARY 1
 #define CLIFF 2
 #define OBJECT 3
 #define CLEAR 4
 #define BUMPRIGHT 5
+#define BUMPLEFT 6
 
 #define RIGHT 0
 #define LEFT 1
@@ -28,7 +28,8 @@ typedef struct {
     int headNegX;
     int headNegY;
 } compassVals;
-
+#define LEFTWHEELSCALAR 0.91
+#define RIGHTWHEELSCALAR 1
 
 
 void move_forward(oi_t *sensor_data, move_scan_t *moveData, int cm, compassVals *compassVals, int directionGlobal);
@@ -49,10 +50,12 @@ void move_scan(oi_t *sensor_data, move_scan_t* moveScanData, int cm, float low_a
 
 void calibrate_turn(oi_t *sensor_data);
 
-void re_center_tape(oi_t *sensor_data, move_scan_t *moveScanData);
+void re_center_tape(oi_t *sensor_data, move_scan_t *moveScanData, compassVals *compassVals, int directionGlobal);
 
-void move_forward_slow(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassVals *compassVals, int directionGlobal);
+void move_forward_slow(oi_t *sensor_data, move_scan_t *moveScanData, int cm);
 
 void angle_correct(oi_t *sensor_data, move_scan_t *moveScanData, int directionGlobal, compassVals *compassVals);
 
 void straight_correct(oi_t *sensor_data, compassVals *compassVals, double angleTurned, int directionGlobal);
+
+double move_backward_no_straight_correct(oi_t *sensor_data, compassVals *compassVals, int cm, int directionGlobal);
