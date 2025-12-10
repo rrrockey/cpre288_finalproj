@@ -307,7 +307,7 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
     }
     else{
         double tempAng = scanData->averageAngle - 135;
-        scanData->driveDistHorizontal = pillarWidth * cos(tempAng * M_PI / 180.0) + (cybotLength / 4);
+        scanData->driveDistHorizontal = pillarWidth * cos(tempAng * M_PI / 180.0) + (cybotLength / 3);
     }
 
     scanData->driveDistVertical = (scanData->averageAdc)*sin(scanData->averageAngle * M_PI / 180.0) + pillarWidth + (cybotLength / 2);
@@ -331,8 +331,29 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
 
 
     while(moveScanData->status != BOUNDARY){
-        sprintf(buffer, "stuck in avoid object/r/n", moveScanData->status);
-                        uart_sendStr(buffer);
+
+
+
+
+        if (moveScanData->status == CLIFF || moveScanData->status == BUMPLEFT
+                || moveScanData->status == BUMPRIGHT)
+        {
+            sprintf(buffer, "cliff sensor hit: status %d/r/n",
+                    moveScanData->status);
+            uart_sendStr(buffer);
+            move_backward(sensor_data, compassVals, 6, directionGlobal);
+            moveScanData->status = CLEAR;
+            update_distance(-6, directionGlobal);
+
+            result = avoidObject(sensor_data, moveScanData, scanData,
+                                 compassVals);
+            if (result)
+                return 1;
+
+        }
+
+
+
 
 
         if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist/2)
@@ -653,7 +674,7 @@ int main(void)
                 scan_cone(40, 140, &moveScanData, &scanData);
 
 
-                int driveDist = fmin(50, scanData.averageAdc);
+                int driveDist = fmin(30, scanData.averageAdc);
                 move_scan(sensor_data, &moveScanData, driveDist, 40, 140, &compassVals, directionGlobal);
 
                 int status = moveScanData.status;
