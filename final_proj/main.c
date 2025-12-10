@@ -169,6 +169,7 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
     int adcVal = 0;
     int i =low;
     int pillarWidth = 0;
+    double tempAng = 0;
     sprintf(buffer, "SCAN %.0f %.0f %d\r\n", horizontalPos, verticalPos, directionGlobal);
 
                 uart_sendStr(buffer);
@@ -207,7 +208,7 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
 
     //DECIDE DIST FOR BUMP AND CLIFF
     if (moveScanData->status == CLIFF) {
-        scanData->driveDistHorizontal = 25;
+        scanData->driveDistHorizontal = 40;
         scanData->driveDistVertical = 25;
     }
     else if (moveScanData->status == BUMPLEFT) {
@@ -218,6 +219,7 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
             scanData->driveDistHorizontal = cybotLength;
             scanData->driveDistVertical = cybotLength + 25;
         }
+
 
 
     lcd_printf("Hori: %.2f Vert %.2f", scanData->driveDistHorizontal, scanData->driveDistVertical);
@@ -261,7 +263,7 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
             if (scanData->adcWidth > 7)   // check the values for bounds
             {
 
-                pillarWidth = 24;
+                pillarWidth = 26;
             }
             else
             {
@@ -274,10 +276,10 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
         }
         else
         {
-            if (scanData->adcWidth > 11)   // check the values for bounds
+            if (scanData->adcWidth > 9.5)   // check the values for bounds
             {
 
-                pillarWidth = 24;
+                pillarWidth = 26;
 
             }
             else if (  scanData->adcWidth > 6)
@@ -300,9 +302,8 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
 
     //handle driveDistHorizontal
     if(scanData->averageAngle >= 90){
-        double tempAng = scanData->averageAngle - 180;
-        sprintf(buffer, "averageADC %.2f  cos (tempAng)%.2f tempAng %.2f pillar width %d\r\n", (scanData->averageAdc), cos(tempAng * M_PI / 180.0), tempAng, pillarWidth);
-        uart_sendStr(buffer);
+        tempAng = scanData->averageAngle - 180;
+
         scanData->driveDistHorizontal = (scanData->averageAdc) * cos(tempAng * M_PI / 180.0) + pillarWidth * cos(tempAng * M_PI / 180.0) + (cybotLength / 2);
     }
     else{
@@ -311,7 +312,8 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
     }
 
     scanData->driveDistVertical = (scanData->averageAdc)*sin(scanData->averageAngle * M_PI / 180.0) + pillarWidth + (cybotLength / 2);
-
+        sprintf(buffer, "averageADC %.2f  cos (tempAng)%.2f tempAng %.2f pillar width %d, adcWidth = %.2f\r\n", (scanData->averageAdc), cos(tempAng * M_PI / 180.0), tempAng, pillarWidth, scanData->adcWidth);
+        uart_sendStr(buffer);
 //
 //    sprintf(buffer, "Final output:  average: %.2f, drive dist Hori %.2f, drive dist Vert %.2f,  pillar Width: %d \r\n", averageADC, scanData->driveDistHorizontal, scanData->driveDistVertical, pillarWidth);
 //    uart_sendStr(buffer);
@@ -324,7 +326,7 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
 int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanData, compassVals *compassVals)
 {
     int result;
-
+    int oldStatus = moveScanData->status;
     rotate_degrees(directionGlobal, 90, sensor_data, moveScanData, compassVals);
     scan_cone(40, 140, moveScanData, scanData);
 
@@ -353,7 +355,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         }
 
 
-
+        moveScanData->status = CLEAR;
 
 
         if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist/2)
@@ -425,14 +427,18 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
             if (result) return 1;
         }
 
-
+        if(oldStatus == CLIFF){
+            scanData->driveDistHorizontal +=5;
+        }
         move_scan(sensor_data, moveScanData, scanData->driveDistHorizontal, 40, 140, compassVals, directionGlobal); //straight
+
         update_distance(moveScanData->distanceTraveled, directionGlobal);
         if(moveScanData->status == BOUNDARY){
 
             continue;
         }
         else if(moveScanData->status == CLIFF || moveScanData->status == BUMPLEFT || moveScanData->status == BUMPRIGHT){
+
                 move_backward(sensor_data, compassVals, 6,  directionGlobal);
                 moveScanData->status = CLEAR;
                 update_distance(-6, directionGlobal);
@@ -445,6 +451,11 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
             }
 
 
+        if(fabs(directionGlobal - (turnStatus-1)) == 2){
+            rotate_degrees(directionGlobal, -90, sensor_data, moveScanData, compassVals);
+            result = avoidObject(sensor_data, moveScanData, scanData, compassVals);
+            if(result) return 1;
+        }
         break;
     }
 //when you finish recursion look for tape
@@ -562,8 +573,8 @@ int main(void)
 
     scanData.adcWidth =0;
     scanData.driveDist = 0;
-    scanData.driveDistHorizontal = 0;
-    scanData.driveDistVertical = 0;
+    scanData.driveDistHorizontal = 25;
+    scanData.driveDistVertical = 25;
 
     compassVals compassVals;
     compassVals.headNegX = 0;
@@ -586,10 +597,16 @@ int main(void)
 
         if (c == 'w')
         {
-            move_forward(sensor_data, &moveScanData, 30, &compassVals, directionGlobal);
-            update_distance(50, directionGlobal);
+            move_forward(sensor_data, &moveScanData, 70, &compassVals, directionGlobal);
+            update_distance(70, directionGlobal);
 
         }
+        if (c == 'e')
+                {
+                    move_scan(sensor_data, &moveScanData, 70 , 45, 135, &compassVals, directionGlobal);
+                    update_distance(70, directionGlobal);
+
+                }
         else if (c == 'a')
         {
           rotate_degrees(directionGlobal, 90, sensor_data, &moveScanData, &compassVals);

@@ -30,7 +30,8 @@ typedef struct {
 } compassVals;
 #define LEFTWHEELSCALAR 0.93
 #define RIGHTWHEELSCALAR 1.06
-
+#define LEFTNOTSCAN 0.97
+#define RIGHTNOTSCAN 1.03
 
 void move_forward(oi_t *sensor_data, move_scan_t *moveData, int cm, compassVals *compassVals, int directionGlobal);
 

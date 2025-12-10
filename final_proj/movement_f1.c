@@ -10,7 +10,7 @@
 
 
 #define WHITETAPE 2650
-#define BLACKTAPE 500
+#define BLACKTAPE 500 //500
 #define POSITIVE_X 0
 #define POSITIVE_Y 1
 #define NEGATIVE_X 2
@@ -26,7 +26,7 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassV
     moveScanData->distanceTraveled = 0;
     double distanceTraveled = 0;
     double angleTurned = 0;
-    oi_setWheels(((int16_t)(200*RIGHTWHEELSCALAR)), ((int16_t)(200*LEFTWHEELSCALAR)));
+    oi_setWheels(((int16_t)(200*RIGHTNOTSCAN)), ((int16_t)(200*LEFTNOTSCAN)));
 
     while (distanceTraveled < cm * MM_IN_CM)
     {
@@ -59,7 +59,7 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassV
             oi_setWheels(0,0);
             turn_counterclockwise(sensor_data, 90);
 
-            oi_setWheels(((int16_t)(200*RIGHTWHEELSCALAR)), ((int16_t)(200*LEFTWHEELSCALAR)));
+            oi_setWheels(((int16_t)(200*RIGHTNOTSCAN)), ((int16_t)(200*LEFTNOTSCAN)));
             timer_waitMillis(300);
             oi_setWheels(0,0);
 
@@ -70,7 +70,9 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassV
         }
 
         if (sensor_data->cliffFrontLeftSignal < BLACKTAPE
-                || sensor_data->cliffFrontRightSignal < BLACKTAPE)
+                  || sensor_data->cliffFrontRightSignal < BLACKTAPE
+                  || sensor_data->cliffLeftSignal < BLACKTAPE
+                  || sensor_data->cliffRightSignal < BLACKTAPE)
         {
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
@@ -143,7 +145,7 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
                     oi_setWheels(0,0);
                     turn_counterclockwise(sensor_data, 90);
 
-                    oi_setWheels(((int16_t)(200*RIGHTWHEELSCALAR)), ((int16_t)(200*LEFTWHEELSCALAR)));
+                    oi_setWheels(((int16_t)(200*RIGHTNOTSCAN)), ((int16_t)(200*LEFTNOTSCAN)));
                     timer_waitMillis(300);
                     oi_setWheels(0,0);
 
@@ -195,7 +197,7 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
 double move_backward(oi_t *sensor_data, compassVals *compassVals, int cm, int directionGlobal) {
     double distanceTraveled = 0;
     double angleTurned = 0;
-    oi_setWheels( ((int16_t)(-200*RIGHTWHEELSCALAR)),  ((int16_t)(-200*LEFTWHEELSCALAR)));
+    oi_setWheels( ((int16_t)(-200*RIGHTNOTSCAN)),  ((int16_t)(-200*LEFTNOTSCAN)));
 
     while (distanceTraveled > -cm * MM_IN_CM) {
         oi_update(sensor_data);
@@ -219,7 +221,7 @@ double move_backward(oi_t *sensor_data, compassVals *compassVals, int cm, int di
 double move_backward_no_straight_correct(oi_t *sensor_data, compassVals *compassVals, int cm, int directionGlobal) {
     double distanceTraveled = 0;
     double angleTurned = 0;
-    oi_setWheels( ((int16_t)(-200*RIGHTWHEELSCALAR)),  ((int16_t)(-200*LEFTWHEELSCALAR)));
+    oi_setWheels( ((int16_t)(-200*RIGHTNOTSCAN)),  ((int16_t)(-200*LEFTNOTSCAN)));
 
     while (distanceTraveled > -cm * MM_IN_CM) {
         oi_update(sensor_data);
