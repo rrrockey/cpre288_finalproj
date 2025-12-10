@@ -328,7 +328,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
     int result;
     int oldStatus = moveScanData->status;
     rotate_degrees(directionGlobal, 90, sensor_data, moveScanData, compassVals);
-    scan_cone(40, 140, moveScanData, scanData);
+    scan_cone(38, 142, moveScanData, scanData);
 
 
 
@@ -389,7 +389,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         rotate_degrees(directionGlobal, -90, sensor_data, moveScanData, compassVals);
 
 
-        scan_cone(40, 140, moveScanData, scanData);
+        scan_cone(38, 142, moveScanData, scanData);
         if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist)
         {
             result = avoidObject(sensor_data, moveScanData, scanData, compassVals);
@@ -397,7 +397,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         }
 
 
-        move_scan(sensor_data, moveScanData, scanData->driveDistVertical, 40, 140, compassVals, directionGlobal); //straight
+        move_scan(sensor_data, moveScanData, scanData->driveDistVertical, 37, 142, compassVals, directionGlobal); //straight
         update_distance(moveScanData->distanceTraveled, directionGlobal);
         if(moveScanData->status == BOUNDARY){
 
@@ -420,7 +420,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
 
         rotate_degrees(directionGlobal, -90, sensor_data, moveScanData, compassVals);
 
-        scan_cone(40, 140, moveScanData, scanData);
+        scan_cone(38, 142, moveScanData, scanData);
         if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist/2)
         {
             result = avoidObject(sensor_data, moveScanData, scanData, compassVals);
@@ -430,7 +430,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         if(oldStatus == CLIFF){
             scanData->driveDistHorizontal +=5;
         }
-        move_scan(sensor_data, moveScanData, scanData->driveDistHorizontal, 40, 140, compassVals, directionGlobal); //straight
+        move_scan(sensor_data, moveScanData, scanData->driveDistHorizontal, 37, 142, compassVals, directionGlobal); //straight
 
         update_distance(moveScanData->distanceTraveled, directionGlobal);
         if(moveScanData->status == BOUNDARY){
@@ -482,7 +482,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
     //moving to white tape at end of seq
     while (moveScanData->status != BOUNDARY)
     {
-        scan_cone(40, 140, moveScanData, scanData);
+        scan_cone(38, 142, moveScanData, scanData);
         if (scanData->averageAdc < 20)
         {
             result = avoidObject(sensor_data, moveScanData, scanData, compassVals);
@@ -490,7 +490,27 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         }
         else
         {
-           move_scan(sensor_data, moveScanData, 25, 40, 140, compassVals, directionGlobal);
+           move_scan(sensor_data, moveScanData, 25, 37, 142, compassVals, directionGlobal);
+
+           if (moveScanData->status == CLIFF
+                    || moveScanData->status == BUMPLEFT
+                    || moveScanData->status == BUMPRIGHT)
+            {
+
+                move_backward(sensor_data, compassVals, 6, directionGlobal);
+                moveScanData->status = CLEAR;
+                update_distance(-6, directionGlobal);
+                sprintf(buffer, "cliff sensor hit: status %d/r/n",
+                        moveScanData->status);
+                uart_sendStr(buffer);
+
+                result = avoidObject(sensor_data, moveScanData, scanData,
+                                     compassVals);
+                if (result)
+                    return 1;
+
+            }
+
            update_distance(moveScanData->distanceTraveled, directionGlobal);
         }
     }
@@ -664,7 +684,7 @@ int main(void)
             while(1){
 
                 oi_update(sensor_data);
-                timer_waitMillis(10);
+                timer_waitMillis(100);
                 sprintf(buffer, "left %d\n FrontLeft %d\n FrontRight %d\n right %d", sensor_data->cliffLeftSignal, sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal, sensor_data->cliffRightSignal);
                 lcd_printf(buffer);
             }
@@ -688,18 +708,18 @@ int main(void)
                 oi_update(sensor_data);
 
                 // scan before movement
-                scan_cone(40, 140, &moveScanData, &scanData);
+                scan_cone(38, 142, &moveScanData, &scanData);
 
 
                 int driveDist = fmin(30, scanData.averageAdc);
-                move_scan(sensor_data, &moveScanData, driveDist, 40, 140, &compassVals, directionGlobal);
+                move_scan(sensor_data, &moveScanData, driveDist, 38, 142, &compassVals, directionGlobal);
 
                 int status = moveScanData.status;
                 double distanceChange = moveScanData.distanceTraveled;
                 update_distance(distanceChange, directionGlobal);
                 if(OBJECT == status){
 
-                    scan_cone(40, 140, &moveScanData, &scanData);
+                    scan_cone(38, 142, &moveScanData, &scanData);
                 }
 
                 if(scanData.averageAdc < 20){

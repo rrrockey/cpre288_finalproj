@@ -28,10 +28,10 @@ typedef struct {
     int headNegX;
     int headNegY;
 } compassVals;
-#define LEFTWHEELSCALAR 0.93
-#define RIGHTWHEELSCALAR 1.06
-#define LEFTNOTSCAN 0.97
-#define RIGHTNOTSCAN 1.03
+#define LEFTWHEELSCALAR 1.00
+#define RIGHTWHEELSCALAR 1.00
+#define LEFTNOTSCAN 1.00
+#define RIGHTNOTSCAN 1.00
 
 void move_forward(oi_t *sensor_data, move_scan_t *moveData, int cm, compassVals *compassVals, int directionGlobal);
 

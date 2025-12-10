@@ -9,7 +9,8 @@
 
 
 
-#define WHITETAPE 2650
+#define WHITETAPE 2600
+#define WHITETAPE_RIGHT 2450
 #define BLACKTAPE 500 //500
 #define POSITIVE_X 0
 #define POSITIVE_Y 1
@@ -54,7 +55,7 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassV
             moveScanData->status = BOUNDARY;
             break;
         }
-        if(sensor_data->cliffRightSignal > WHITETAPE && (!(sensor_data->cliffFrontLeftSignal > WHITETAPE
+        if(sensor_data->cliffRightSignal > WHITETAPE_RIGHT && (!(sensor_data->cliffFrontLeftSignal > WHITETAPE
                 || sensor_data->cliffFrontRightSignal > WHITETAPE))){
             oi_setWheels(0,0);
             turn_counterclockwise(sensor_data, 90);
@@ -140,7 +141,7 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
             moveScanData->status = BOUNDARY;
             break;
         }
-        if(sensor_data->cliffRightSignal > WHITETAPE && (!(sensor_data->cliffFrontLeftSignal > WHITETAPE
+        if(sensor_data->cliffRightSignal > WHITETAPE_RIGHT && (!(sensor_data->cliffFrontLeftSignal > WHITETAPE
                         || sensor_data->cliffFrontRightSignal > WHITETAPE))){
                     oi_setWheels(0,0);
                     turn_counterclockwise(sensor_data, 90);
