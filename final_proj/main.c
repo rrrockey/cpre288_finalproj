@@ -325,247 +325,355 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
 
 int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanData, compassVals *compassVals)
 {
-    int result;
+    #define cybotLength 40
+
+    // Stack to simulate recursion - stores the state at each "recursive call"
+    typedef struct {
+        int oldStatus;
+        int phase;  // Tracks which part of the avoidance sequence we're in
+    } AvoidState;
+
+    #define MAX_RECURSION_DEPTH 50
+    AvoidState stateStack[MAX_RECURSION_DEPTH];
+    int stackPointer = 0;
+
+    // Initialize first state
     int oldStatus = moveScanData->status;
-    rotate_degrees(directionGlobal, 90, sensor_data, moveScanData, compassVals);
-    scan_cone(38, 142, moveScanData, scanData);
+    stateStack[stackPointer].oldStatus = oldStatus;
+    stateStack[stackPointer].phase = 0;
+    stackPointer++;
 
+    // Main iterative loop - continues until all states are processed
+    while (stackPointer > 0) {
+        // Pop current state
+        stackPointer--;
+        AvoidState currentState = stateStack[stackPointer];
+        oldStatus = currentState.oldStatus;
+        int phase = currentState.phase;
 
-
-    while(moveScanData->status != BOUNDARY){
-
-
-
-
-        if (moveScanData->status == CLIFF || moveScanData->status == BUMPLEFT
-                || moveScanData->status == BUMPRIGHT)
-        {
-            sprintf(buffer, "cliff sensor hit: status %d/r/n",
-                    moveScanData->status);
-            uart_sendStr(buffer);
-            move_backward(sensor_data, compassVals, 6, directionGlobal);
-            moveScanData->status = CLEAR;
-            update_distance(-6, directionGlobal);
-
-            result = avoidObject(sensor_data, moveScanData, scanData,
-                                 compassVals);
-            if (result)
-                return 1;
-
+        // If starting fresh at this level, do initial rotation and scan
+        if (phase == 0) {
+            rotate_degrees(directionGlobal, 90, sensor_data, moveScanData, compassVals);
+            scan_cone(38, 142, moveScanData, scanData);
+            phase = 1;
         }
 
+        // Main avoidance loop for this recursion level
+        int continueLoop = 1;
+        while (continueLoop && moveScanData->status != BOUNDARY) {
 
-        moveScanData->status = CLEAR;
-
-
-        if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist/2)
-        {
-            result = avoidObject(sensor_data, moveScanData, scanData, compassVals);
-            if (result) return 1;
-        }
-
-
-        move_forward(sensor_data, moveScanData, scanData->driveDistHorizontal, compassVals, directionGlobal); // - scanData->averageAdc); //sideways
-        update_distance(moveScanData->distanceTraveled, directionGlobal);
-        if(moveScanData->status == BOUNDARY){
-
-            continue;
-        }
-
-        else if(moveScanData->status == CLIFF || moveScanData->status == BUMPLEFT || moveScanData->status == BUMPRIGHT){
-                sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
-                uart_sendStr(buffer);
-            move_backward(sensor_data, compassVals, 6,  directionGlobal);
-            moveScanData->status = CLEAR;
-            update_distance(-6, directionGlobal);
-
-                result = avoidObject(sensor_data, moveScanData, scanData, compassVals);
-                if (result) return 1;
-
-            }
-
-
-
-        rotate_degrees(directionGlobal, -90, sensor_data, moveScanData, compassVals);
-
-
-        scan_cone(38, 142, moveScanData, scanData);
-        if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist)
-        {
-            result = avoidObject(sensor_data, moveScanData, scanData, compassVals);
-            if (result) return 1;
-        }
-
-
-        move_scan(sensor_data, moveScanData, scanData->driveDistVertical, 37, 142, compassVals, directionGlobal); //straight
-        update_distance(moveScanData->distanceTraveled, directionGlobal);
-        if(moveScanData->status == BOUNDARY){
-
-            continue;
-        }
-
-        else if(moveScanData->status == CLIFF ||moveScanData->status == BUMPLEFT || moveScanData->status == BUMPRIGHT){
-                move_backward(sensor_data, compassVals, 6, directionGlobal);
-                moveScanData->status = CLEAR;
-                update_distance(-6, directionGlobal);
-                sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
-                                uart_sendStr(buffer);
-
-                result = avoidObject(sensor_data, moveScanData, scanData, compassVals);
-                if (result) return 1;
-
-            }
-
-
-
-        rotate_degrees(directionGlobal, -90, sensor_data, moveScanData, compassVals);
-
-        scan_cone(38, 142, moveScanData, scanData);
-        if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist/2)
-        {
-            result = avoidObject(sensor_data, moveScanData, scanData, compassVals);
-            if (result) return 1;
-        }
-
-        if(oldStatus == CLIFF){
-            scanData->driveDistHorizontal +=5;
-        }
-        move_scan(sensor_data, moveScanData, scanData->driveDistHorizontal, 37, 142, compassVals, directionGlobal); //straight
-
-        update_distance(moveScanData->distanceTraveled, directionGlobal);
-        if(moveScanData->status == BOUNDARY){
-
-            continue;
-        }
-        else if(moveScanData->status == CLIFF || moveScanData->status == BUMPLEFT || moveScanData->status == BUMPRIGHT){
-
-                move_backward(sensor_data, compassVals, 6,  directionGlobal);
-                moveScanData->status = CLEAR;
-                update_distance(-6, directionGlobal);
-                sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
-                                uart_sendStr(buffer);
-
-                result = avoidObject(sensor_data, moveScanData, scanData, compassVals);
-                if (result) return 1;
-
-            }
-
-
-        if(fabs(directionGlobal - (turnStatus-1)) == 2){
-            rotate_degrees(directionGlobal, -90, sensor_data, moveScanData, compassVals);
-            result = avoidObject(sensor_data, moveScanData, scanData, compassVals);
-            if(result) return 1;
-        }
-        break;
-    }
-//when you finish recursion look for tape
-
-    if (!turnStatus)
-    {
-        face_direction(directionGlobal, NEGATIVE_Y, sensor_data, moveScanData, compassVals);
-    }
-    else if (turnStatus == 1)
-    {
-
-        face_direction(directionGlobal, POSITIVE_X, sensor_data, moveScanData, compassVals);
-    }
-    else if (turnStatus == 2)
-    {
-
-        face_direction(directionGlobal, POSITIVE_Y, sensor_data, moveScanData, compassVals);
-    }
-    else if (turnStatus == 3)
-    {
-        face_direction(directionGlobal, NEGATIVE_X, sensor_data, moveScanData, compassVals);
-    }
-
-    //moving to white tape at end of seq
-    while (moveScanData->status != BOUNDARY)
-    {
-        scan_cone(38, 142, moveScanData, scanData);
-        if (scanData->averageAdc < 20)
-        {
-            result = avoidObject(sensor_data, moveScanData, scanData, compassVals);
-            if (result) return 1;
-        }
-        else
-        {
-           move_scan(sensor_data, moveScanData, 25, 37, 142, compassVals, directionGlobal);
-
-           if (moveScanData->status == CLIFF
-                    || moveScanData->status == BUMPLEFT
-                    || moveScanData->status == BUMPRIGHT)
+            // Handle cliff/bump encountered before movement
+            if (phase == 1 && (moveScanData->status == CLIFF || moveScanData->status == BUMPLEFT
+                    || moveScanData->status == BUMPRIGHT))
             {
-
+                sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
+                uart_sendStr(buffer);
                 move_backward(sensor_data, compassVals, 6, directionGlobal);
                 moveScanData->status = CLEAR;
                 update_distance(-6, directionGlobal);
-                sprintf(buffer, "cliff sensor hit: status %d/r/n",
-                        moveScanData->status);
-                uart_sendStr(buffer);
 
-                result = avoidObject(sensor_data, moveScanData, scanData,
-                                     compassVals);
-                if (result)
-                    return 1;
+                // Push current state back to resume after "recursive" call
+                stateStack[stackPointer].oldStatus = oldStatus;
+                stateStack[stackPointer].phase = 1;
+                stackPointer++;
 
+                // Push new "recursive" call state
+                stateStack[stackPointer].oldStatus = moveScanData->status;
+                stateStack[stackPointer].phase = 0;
+                stackPointer++;
+
+                continueLoop = 0;  // Break to process new state
+                continue;
             }
 
-           update_distance(moveScanData->distanceTraveled, directionGlobal);
+            moveScanData->status = CLEAR;
+
+            // Check if object too close before first move
+            if (phase == 1 && (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist/2))
+            {
+                // Push current state back
+                stateStack[stackPointer].oldStatus = oldStatus;
+                stateStack[stackPointer].phase = 1;
+                stackPointer++;
+
+                // Push new "recursive" call
+                stateStack[stackPointer].oldStatus = moveScanData->status;
+                stateStack[stackPointer].phase = 0;
+                stackPointer++;
+
+                continueLoop = 0;
+                continue;
+            }
+
+            // First move - sideways
+            if (phase == 1) {
+                move_forward(sensor_data, moveScanData, scanData->driveDistHorizontal, compassVals, directionGlobal);
+                update_distance(moveScanData->distanceTraveled, directionGlobal);
+
+                if (moveScanData->status == BOUNDARY) {
+                    phase = 10;  // Jump to end
+                    continue;
+                }
+                else if (moveScanData->status == CLIFF || moveScanData->status == BUMPLEFT || moveScanData->status == BUMPRIGHT) {
+                    sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
+                    uart_sendStr(buffer);
+                    move_backward(sensor_data, compassVals, 6, directionGlobal);
+                    moveScanData->status = CLEAR;
+                    update_distance(-6, directionGlobal);
+
+                    stateStack[stackPointer].oldStatus = oldStatus;
+                    stateStack[stackPointer].phase = 1;
+                    stackPointer++;
+
+                    stateStack[stackPointer].oldStatus = moveScanData->status;
+                    stateStack[stackPointer].phase = 0;
+                    stackPointer++;
+
+                    continueLoop = 0;
+                    continue;
+                }
+
+                phase = 2;
+            }
+
+            // First rotation and scan
+            if (phase == 2) {
+                rotate_degrees(directionGlobal, -90, sensor_data, moveScanData, compassVals);
+                scan_cone(38, 142, moveScanData, scanData);
+
+                if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist) {
+                    stateStack[stackPointer].oldStatus = oldStatus;
+                    stateStack[stackPointer].phase = 2;
+                    stackPointer++;
+
+                    stateStack[stackPointer].oldStatus = moveScanData->status;
+                    stateStack[stackPointer].phase = 0;
+                    stackPointer++;
+
+                    continueLoop = 0;
+                    continue;
+                }
+
+                phase = 3;
+            }
+
+            // Second move - straight
+            if (phase == 3) {
+                move_scan(sensor_data, moveScanData, scanData->driveDistVertical, 37, 142, compassVals, directionGlobal);
+                update_distance(moveScanData->distanceTraveled, directionGlobal);
+
+                if (moveScanData->status == BOUNDARY) {
+                    phase = 10;
+                    continue;
+                }
+                else if (moveScanData->status == CLIFF || moveScanData->status == BUMPLEFT || moveScanData->status == BUMPRIGHT) {
+                    move_backward(sensor_data, compassVals, 6, directionGlobal);
+                    moveScanData->status = CLEAR;
+                    update_distance(-6, directionGlobal);
+                    sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
+                    uart_sendStr(buffer);
+
+                    stateStack[stackPointer].oldStatus = oldStatus;
+                    stateStack[stackPointer].phase = 3;
+                    stackPointer++;
+
+                    stateStack[stackPointer].oldStatus = moveScanData->status;
+                    stateStack[stackPointer].phase = 0;
+                    stackPointer++;
+
+                    continueLoop = 0;
+                    continue;
+                }
+
+                phase = 4;
+            }
+
+            // Second rotation and scan
+            if (phase == 4) {
+                rotate_degrees(directionGlobal, -90, sensor_data, moveScanData, compassVals);
+                scan_cone(38, 142, moveScanData, scanData);
+
+                if (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist/2) {
+                    stateStack[stackPointer].oldStatus = oldStatus;
+                    stateStack[stackPointer].phase = 4;
+                    stackPointer++;
+
+                    stateStack[stackPointer].oldStatus = moveScanData->status;
+                    stateStack[stackPointer].phase = 0;
+                    stackPointer++;
+
+                    continueLoop = 0;
+                    continue;
+                }
+
+                phase = 5;
+            }
+
+            // Third move - straight again
+            if (phase == 5) {
+                if (oldStatus == CLIFF) {
+                    scanData->driveDistHorizontal += 5;
+                }
+
+                move_scan(sensor_data, moveScanData, scanData->driveDistHorizontal, 37, 142, compassVals, directionGlobal);
+                update_distance(moveScanData->distanceTraveled, directionGlobal);
+
+                if (moveScanData->status == BOUNDARY) {
+                    phase = 10;
+                    continue;
+                }
+                else if (moveScanData->status == CLIFF || moveScanData->status == BUMPLEFT || moveScanData->status == BUMPRIGHT) {
+                    move_backward(sensor_data, compassVals, 6, directionGlobal);
+                    moveScanData->status = CLEAR;
+                    update_distance(-6, directionGlobal);
+                    sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
+                    uart_sendStr(buffer);
+
+                    stateStack[stackPointer].oldStatus = oldStatus;
+                    stateStack[stackPointer].phase = 5;
+                    stackPointer++;
+
+                    stateStack[stackPointer].oldStatus = moveScanData->status;
+                    stateStack[stackPointer].phase = 0;
+                    stackPointer++;
+
+                    continueLoop = 0;
+                    continue;
+                }
+
+                phase = 6;
+            }
+
+            // Check if need special handling based on direction
+            if (phase == 6) {
+                if (fabs(directionGlobal - (turnStatus - 1)) == 2) {
+                    rotate_degrees(directionGlobal, -90, sensor_data, moveScanData, compassVals);
+
+                    stateStack[stackPointer].oldStatus = oldStatus;
+                    stateStack[stackPointer].phase = 6;
+                    stackPointer++;
+
+                    stateStack[stackPointer].oldStatus = moveScanData->status;
+                    stateStack[stackPointer].phase = 0;
+                    stackPointer++;
+
+                    continueLoop = 0;
+                    continue;
+                }
+
+                phase = 10;  // Done with main sequence, go to tape finding
+                break;
+            }
         }
-    }
-    re_center_tape(sensor_data, moveScanData, compassVals, directionGlobal);
-    head = read_euler_heading(BNO055_ADDRESS_B) / 16;
-    if (directionGlobal == POSITIVE_X) {
-        compassVals->headPosX = head;
-        compassVals->headNegY = ((head + 90) % 360);
-        compassVals->headNegX = ((head + 180) % 360);
-        compassVals->headPosY = ((head + 270) % 360);
 
-    }
-    if (directionGlobal == POSITIVE_Y) {
-        compassVals->headPosY = head;
-        compassVals->headPosX = ((head + 90) % 360);
-        compassVals->headNegY = ((head + 180) % 360);
-        compassVals->headNegX = ((head + 270) % 360);
-    }
-    if (directionGlobal == NEGATIVE_X) {
-        compassVals->headNegX = head;
-        compassVals->headPosY = ((head + 90) % 360);
-        compassVals->headPosX = ((head + 180) % 360);
-        compassVals->headNegY = ((head + 270) % 360);
-    }
-    if (directionGlobal == NEGATIVE_Y) {
-        compassVals->headNegY = head;
-        compassVals->headNegX = ((head + 90) % 360);
-        compassVals->headPosY = ((head + 180) % 360);
-        compassVals->headPosX = ((head + 270) % 360);
+        // Phase 10: After completing avoidance, look for tape
+        if (phase == 10 || moveScanData->status == BOUNDARY) {
+            // Face appropriate direction based on turnStatus
+            if (!turnStatus) {
+                face_direction(directionGlobal, NEGATIVE_Y, sensor_data, moveScanData, compassVals);
+            }
+            else if (turnStatus == 1) {
+                face_direction(directionGlobal, POSITIVE_X, sensor_data, moveScanData, compassVals);
+            }
+            else if (turnStatus == 2) {
+                face_direction(directionGlobal, POSITIVE_Y, sensor_data, moveScanData, compassVals);
+            }
+            else if (turnStatus == 3) {
+                face_direction(directionGlobal, NEGATIVE_X, sensor_data, moveScanData, compassVals);
+            }
 
-    }
+            // Moving to white tape at end of sequence
+            while (moveScanData->status != BOUNDARY) {
+                scan_cone(38, 142, moveScanData, scanData);
 
-    //get back into direction to continue until next EDGE
-    if (!turnStatus)
-    {
-        face_direction(directionGlobal, POSITIVE_X, sensor_data, moveScanData, compassVals);
-    }
-    else if (turnStatus == 1)
-    {
-        face_direction(directionGlobal, POSITIVE_Y, sensor_data, moveScanData, compassVals);
+                if (scanData->averageAdc < 20) {
+                    // Need to avoid another object - push state to continue tape search after
+                    stateStack[stackPointer].oldStatus = oldStatus;
+                    stateStack[stackPointer].phase = 11;  // Resume tape search after recursion
+                    stackPointer++;
 
-    }
-    else if (turnStatus == 2)
-    {
-        face_direction(directionGlobal, NEGATIVE_X, sensor_data, moveScanData, compassVals);
+                    stateStack[stackPointer].oldStatus = moveScanData->status;
+                    stateStack[stackPointer].phase = 0;
+                    stackPointer++;
 
-    }
-    else if (turnStatus == 3)
-    {
-        face_direction(directionGlobal, NEGATIVE_Y, sensor_data, moveScanData, compassVals);
+                    break;  // Process the new avoidance
+                }
+                else {
+                    move_scan(sensor_data, moveScanData, 25, 37, 142, compassVals, directionGlobal);
 
+                    if (moveScanData->status == CLIFF
+                            || moveScanData->status == BUMPLEFT
+                            || moveScanData->status == BUMPRIGHT)
+                    {
+                        move_backward(sensor_data, compassVals, 6, directionGlobal);
+                        moveScanData->status = CLEAR;
+                        update_distance(-6, directionGlobal);
+                        sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
+                        uart_sendStr(buffer);
+
+                        stateStack[stackPointer].oldStatus = oldStatus;
+                        stateStack[stackPointer].phase = 11;
+                        stackPointer++;
+
+                        stateStack[stackPointer].oldStatus = moveScanData->status;
+                        stateStack[stackPointer].phase = 0;
+                        stackPointer++;
+
+                        break;
+                    }
+
+                    update_distance(moveScanData->distanceTraveled, directionGlobal);
+                }
+            }
+
+            // If we found boundary, recenter and update compass
+            if (moveScanData->status == BOUNDARY) {
+                re_center_tape(sensor_data, moveScanData, compassVals, directionGlobal);
+                head = read_euler_heading(BNO055_ADDRESS_B) / 16;
+
+                if (directionGlobal == POSITIVE_X) {
+                    compassVals->headPosX = head;
+                    compassVals->headNegY = ((head + 90) % 360);
+                    compassVals->headNegX = ((head + 180) % 360);
+                    compassVals->headPosY = ((head + 270) % 360);
+                }
+                if (directionGlobal == POSITIVE_Y) {
+                    compassVals->headPosY = head;
+                    compassVals->headPosX = ((head + 90) % 360);
+                    compassVals->headNegY = ((head + 180) % 360);
+                    compassVals->headNegX = ((head + 270) % 360);
+                }
+                if (directionGlobal == NEGATIVE_X) {
+                    compassVals->headNegX = head;
+                    compassVals->headPosY = ((head + 90) % 360);
+                    compassVals->headPosX = ((head + 180) % 360);
+                    compassVals->headNegY = ((head + 270) % 360);
+                }
+                if (directionGlobal == NEGATIVE_Y) {
+                    compassVals->headNegY = head;
+                    compassVals->headNegX = ((head + 90) % 360);
+                    compassVals->headPosY = ((head + 180) % 360);
+                    compassVals->headPosX = ((head + 270) % 360);
+                }
+
+                // Get back into direction to continue
+                if (!turnStatus) {
+                    face_direction(directionGlobal, POSITIVE_X, sensor_data, moveScanData, compassVals);
+                }
+                else if (turnStatus == 1) {
+                    face_direction(directionGlobal, POSITIVE_Y, sensor_data, moveScanData, compassVals);
+                }
+                else if (turnStatus == 2) {
+                    face_direction(directionGlobal, NEGATIVE_X, sensor_data, moveScanData, compassVals);
+                }
+                else if (turnStatus == 3) {
+                    face_direction(directionGlobal, NEGATIVE_Y, sensor_data, moveScanData, compassVals);
+                }
+            }
+        }
     }
 
     return 1;
-/*END avoid_object()*/
 }
 
 
