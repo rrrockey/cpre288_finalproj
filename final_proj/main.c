@@ -15,13 +15,11 @@
  * main.c
  */
 
-typedef struct {
-    int start_angle;
-    int end_angle;
-    int mid_angle;
-    double ping_distance;
-    double width;
-} object_t;
+
+/**
+ * Scan info struct holds every thing that has to do with objects and the distance our bot should drive when seeing an object.
+ * All of these values are calculated in scan_cone
+ */
 
 typedef struct {
     int averagePing;
@@ -35,6 +33,10 @@ typedef struct {
 } scan_info;
 
 
+/**
+ * Variables that hold the direction and headVals that we get through the IMU.
+ * VerticalPos and HorizontalPos store the updated values of distance based on OI.
+ */
 
 int directionGlobal = 0; //0,1,2,3 for NWSE: starts at 0 for positive X /*should be 0 <----------- */
 int headVal = 0;
@@ -45,11 +47,20 @@ double verticalPos = 0;
 #define NEGATIVE_X 2
 #define NEGATIVE_Y 3
 
+/**
+ * Global values that help us determine which stage of our code we are at
+ * a global buffer for debugging
+ * global head value to pull imu heading val
+ */
 
 int turnStatus = 0;
 char buffer[200];
 int head;
 
+
+/**
+ * get rick rolled
+ */
 
 void rickroll(void) {
     unsigned char rickrollNumNotes = 11;
@@ -59,6 +70,11 @@ void rickroll(void) {
     oi_loadSong(RICK_ROLL, rickrollNumNotes, rickrollNotes, rickrollDuration);
     oi_play_song(RICK_ROLL);
 }
+
+/**
+ * rotate degrees that has direction handling built in. This makes optimal turns and updates global direction so that we keep things consistent
+ */
+
 
 void rotate_degrees(int angle/*global direction*/, int turnChange/*change in angle*/, oi_t *sensor_data, move_scan_t *moveScanData, compassVals *compassVals){ //CCW is positive
     char buffer[200];
@@ -103,6 +119,11 @@ void rotate_degrees(int angle/*global direction*/, int turnChange/*change in ang
     angle_correct(sensor_data, moveScanData, directionGlobal, compassVals);
 }
 
+/**
+ * face direction uses our rotate degrees function, but based on which direction we are going and which direction we want to go it simplifies
+ * the code so we can make moves based on direction instead of angles.
+ */
+
 void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data, move_scan_t *moveScanData, compassVals *compassVals){
 
     int direction = 90*(startDir - finalDir);
@@ -131,6 +152,10 @@ void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data, m
 
 }
 
+
+/**
+ * keeps distance updated properly based on the direction we are facing. Making sure our total distance is handled properly.
+ */
 void update_distance(double distance, int direction ){
     char buffer[200];
     if(direction == 0){
@@ -152,7 +177,10 @@ void update_distance(double distance, int direction ){
 
 }
 
-
+/**
+ * scan_cone is how we decide and calculate if there is or isnt an object.
+ * this is partly decided in move scan where we set a status that we check here.
+ */
 void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanData){
     #define cybotLength 40
     int adcTickAmnt = 0;
@@ -170,10 +198,23 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
     int i =low;
     int pillarWidth = 0;
     double tempAng = 0;
-    sprintf(buffer, "SCAN %.0f %.0f %d\r\n", horizontalPos, verticalPos, directionGlobal);
 
-                uart_sendStr(buffer);
+    /**
+     * uart to send to GUI
+     */
+
+    sprintf(buffer, "SCAN %.0f %.0f %d\r\n", horizontalPos, verticalPos, directionGlobal);
+    uart_sendStr(buffer);
+
+
+    /**
+     * actual scan loop that calculates the amount of ticks wide an object is.
+     * We used below 25 cm because we did not want to avoid objects that were further away than that.
+     * The final uart print in this loop is also for GUI
+     */
+
     for(i =low; i<high; i+=2){
+
         servo_move(i);
         adcVal = adc_read();
 
@@ -200,13 +241,27 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
 
 
     }
+
+
+    /**
+     * where we calculate the "mid point" of the object and place it in the scanData struct
+     */
+
     averageAngle /= pingTickAmnt;
     scanData->averageAngle = averageAngle;
-    sprintf(buffer, "ENDSCAN, average angle: %.2f \r\n", averageAngle);
-                   uart_sendStr(buffer);
-    //uart_sendStr("ENDSCAN");
 
-    //DECIDE DIST FOR BUMP AND CLIFF
+
+
+
+    sprintf(buffer, "ENDSCAN, average angle: %.2f \r\n", averageAngle);
+    uart_sendStr(buffer);
+
+
+
+    /**
+     * if status is cliff or bump left or right we want to store a different value for move distances.
+     */
+
     if (moveScanData->status == CLIFF) {
         scanData->driveDistHorizontal = 40;
         scanData->driveDistVertical = 25;
@@ -223,28 +278,39 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
 
 
     lcd_printf("Hori: %.2f Vert %.2f", scanData->driveDistHorizontal, scanData->driveDistVertical);
-    // no objects found
+
+
+    /**
+     * if there are no ticks scanned return from scan_cone
+     */
+
     if(adcTickAmnt == 0 || pingTickAmnt == 0){
         sprintf(buffer, "No objects found!\r\n");
                uart_sendStr(buffer);
 
-
+        //set scanData to a maximum value
 
         scanData->averageAdc = 200;
         scanData->averagePing = 200;
 
-//        sprintf(buffer, "no object found:  \r\naverage width: %.2f, \r\ndrive dist hori %.2f, \r\nddv %.2f \r\nobject count: %d \r\n", scanData->adcWidth, scanData->driveDistHorizontal, scanData->driveDistVertical, adcTickAmnt);
-//            uart_sendStr(buffer);
         return;
     }
+
+
+    /**
+     * set the average ping and ADC based on the tick amount and average adc from above.
+     */
+
     averageADC = averageADC / ((double)(adcTickAmnt));
     averagePing = averagePing/pingTickAmnt;
 
-
-
-
     scanData->averageAdc = averageADC;
     scanData->averagePing = averagePing;
+
+    /**
+     * calculating the radial width based on the adc tick amount and pint tick amount. Both a times 2 because we scan every 2 degrees.
+     * places them in the scanData
+     */
 
     adcRad = (adcTickAmnt * 2) * (3.14 / 180.0);
     adcWidth = 2 * averageADC * tan(adcRad / 2.0);
@@ -254,6 +320,11 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
 
     scanData->adcWidth = adcWidth;
     scanData->pingWidth = pingWidth;
+
+    /**
+     * because our adcRad and width was not passing objects fully, we made sure to find values that it was reading
+     * Then we manually set the pillar width based on those found values.
+     */
 
     if (adcTickAmnt > 0)
     {
@@ -300,7 +371,14 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
     }
 
 
-    //handle driveDistHorizontal
+
+
+    /**
+     * set the horizontal distance and the vertical drive distance based on where the angle is and different guess and check values.
+     * The cosine function are based off the trig and angle from where the sensor is and, assuming our avergae angle is correct, the middle of the object.
+     */
+
+
     if(scanData->averageAngle >= 90){
         tempAng = scanData->averageAngle - 180;
 
@@ -312,16 +390,9 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
     }
 
     scanData->driveDistVertical = (scanData->averageAdc)*sin(scanData->averageAngle * M_PI / 180.0) + pillarWidth + (cybotLength / 2);
-        sprintf(buffer, "averageADC %.2f  cos (tempAng)%.2f tempAng %.2f pillar width %d, adcWidth = %.2f\r\n", (scanData->averageAdc), cos(tempAng * M_PI / 180.0), tempAng, pillarWidth, scanData->adcWidth);
-        uart_sendStr(buffer);
-//
-//    sprintf(buffer, "Final output:  average: %.2f, drive dist Hori %.2f, drive dist Vert %.2f,  pillar Width: %d \r\n", averageADC, scanData->driveDistHorizontal, scanData->driveDistVertical, pillarWidth);
-//    uart_sendStr(buffer);
-
-
-
-
 }
+
+
 
 int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanData, compassVals *compassVals)
 {
@@ -688,7 +759,7 @@ int main(void)
     adc_init();
     button_init();
     I2C1_Init();
-//    BNO055_Init();
+
 
 
     oi_t *sensor_data = oi_alloc();
