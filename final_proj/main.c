@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ping.h"
+#include "IMU.h"
 #include <inc/tm4c123gh6pm.h>
 /**
  * main.c
@@ -39,7 +40,10 @@ typedef struct {
 
 
 
+
+
 int directionGlobal = 0; //0,1,2,3 for NWSE: starts at 0 for positive X /*should be 0 <----------- */
+int headVal = 0;
 double horizontalPos = 0;
 double verticalPos = 0;
 #define POSITIVE_X 0
@@ -51,9 +55,54 @@ double verticalPos = 0;
 int turnStatus = 0;
 char buffer[200];
 
-void rotate_degrees(int angle_deg, int turnChange_deg, oi_t *sensor_data){
+
+
+void rickroll(void) {
+    unsigned char rickrollNumNotes = 11;
+    unsigned char rickrollNotes[11]    = {53, 55, 48, 55, 57, 60, 58, 57, 53, 55, 48};
+    unsigned char rickrollDuration[11] = {48, 64, 16, 48, 48, 8,  8,  8,  48, 64, 64};
+    int RICK_ROLL = 0;
+    oi_loadSong(RICK_ROLL, rickrollNumNotes, rickrollNotes, rickrollDuration);
+    oi_play_song(RICK_ROLL);
+}
+
+void rotate_degrees(int angle/*global direction*/, int turnChange/*change in angle*/, oi_t *sensor_data){ //CCW is positive
     char buffer[200];
     int startAngle = directionGlobal;
+
+    double angleSegment = 0;
+    int i =0;
+    sprintf(buffer, "value %d", read_euler_heading(BNO055_ADDRESS_B) / 16);
+                        uart_sendStr(buffer);
+    if(angleChange>0){
+        angle+= angleChange;
+        angle %=4;
+
+        //turn_counterclockwise(sensor_data, angleChange*90);
+
+        for( i =0; i<1; i++){
+            turn_counterclockwise(sensor_data, angleChange *90);
+        }
+    }
+    else
+    {
+        angle--;
+        if (angle < 0)
+        {
+            angle += 4;
+            angleChange *= -1;
+            for ( i = 0; i < 1; i++)
+            {
+                turn_clockwise(sensor_data, angleChange * 90);
+            }
+        }
+        else
+        {
+            for ( i = 0; i < 1; i++)
+            {
+                turn_clockwise(sensor_data, 90);
+            }
+        }
 
     // Perform Turn
     if (turnChange_deg > 0) {
@@ -61,6 +110,7 @@ void rotate_degrees(int angle_deg, int turnChange_deg, oi_t *sensor_data){
     } else {
         turn_clockwise(sensor_data, -turnChange_deg); // Pass positive value
     }
+
 
     // Update Global Direction (0-359)
     directionGlobal += turnChange_deg;
@@ -70,9 +120,11 @@ void rotate_degrees(int angle_deg, int turnChange_deg, oi_t *sensor_data){
     while (directionGlobal < 0) directionGlobal += 360;
     sprintf(buffer, "TURN %d %d\r\n", startAngle, directionGlobal);
     uart_sendStr(buffer);
+
 }
 
 void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data){
+
     int direction = 90*(startDir - finalDir);
     if(direction == 0) {
         return;
@@ -96,6 +148,7 @@ void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data){
     }
 
 
+
 }
 
 void update_distance(double distance, int direction ){
@@ -115,7 +168,12 @@ void update_distance(double distance, int direction ){
     horizontalPos += distance * cos(direction * 3.14 / 180);
     verticalPos += distance * sin(direction * 3.14 / 180);
     sprintf(buffer, "MOVE %.0f %.0f %d %.0f\r\n", horizontalPos, verticalPos, direction, distance);
+
                 uart_sendStr(buffer);
+
+                sprintf(buffer, "value %d", read_euler_heading(BNO055_ADDRESS_B) / 16);
+                uart_sendStr(buffer);
+
 }
 
 
@@ -175,7 +233,8 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
     if (moveScanData->status == CLIFF) {
         scanData->driveDistHorizontal = 25;
         scanData->driveDistVertical = 25;
-    } else if (moveScanData->status == BUMPLEFT) {
+    }
+    else if (moveScanData->status == BUMPLEFT) {
         scanData->driveDistHorizontal = cybotLength;
         scanData->driveDistVertical = 25 + cybotLength;
     }
@@ -292,6 +351,10 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
     //update_distance(driveDist, direction);
     rotate_degrees(directionGlobal, 90, sensor_data);
     scan_cone(40, 140, moveScanData, scanData);
+
+
+        sprintf(buffer, "status when entering avoid object: %d\r\n", moveScanData->status);
+        uart_sendStr(buffer);
 
     while(moveScanData->status != BOUNDARY){
 
@@ -461,6 +524,8 @@ int main(void)
     ping_init();
     adc_init();
     button_init();
+    I2C1_Init();
+    BNO055_Init();
 
     int lastDirection;
 
@@ -479,6 +544,7 @@ int main(void)
 
 
     move_scan_t moveScanData;
+    compassVals compassVals;
     moveScanData.distanceTraveled = 0;
     moveScanData.status = CLEAR;
 
@@ -487,6 +553,7 @@ int main(void)
     {
 
         char c = uart_receive();
+        int b = button_getButton();
 
 
         if (c == 'w')
@@ -599,12 +666,11 @@ int main(void)
                 move_backward(sensor_data, 7);
                 update_distance(-7, directionGlobal);
             }
-
         }
         else if (c == 'a')
         {
-            lastDirection = directionGlobal;
             rotate_degrees(directionGlobal, 90, sensor_data);
+
             if (moveScanData.status == BOUNDARY)
             {
 
@@ -625,11 +691,13 @@ int main(void)
                 update_distance(-10, directionGlobal);
                 moveScanData.status = CLEAR;
             }
+
         }
         else if (c == 'd')
         {
-            lastDirection = directionGlobal;
+
             rotate_degrees(directionGlobal, -90, sensor_data);
+
             if (moveScanData.status == BOUNDARY)
             {
 
@@ -650,6 +718,7 @@ int main(void)
                 update_distance(-10, directionGlobal);
                 moveScanData.status = CLEAR;
             }
+
         }
         else if (c == 'i')
         {
@@ -751,7 +820,25 @@ int main(void)
         else if (c == 's')
         {
             move_backward(sensor_data, 50);
+            angle_correct(sensor_data, &moveScanData, directionGlobal, &compassVals);
             update_distance(-50, directionGlobal);
+        }
+        else if (c == 'g')
+        {
+//            I2C1_Init();
+//            BNO055_Init();
+            while (b != 1) {
+                int head =  read_euler_heading(BNO055_ADDRESS_B) / 16;
+                b = button_getButton();
+                lcd_printf("value %d", head); // divide by 16 and correlate to a value that is eithe NSWE I believe
+                timer_waitMillis(50);
+
+                compassVals.headPosX = head;
+                compassVals.headNegY = ((head + 90) % 360);
+                compassVals.headNegX = ((head + 180) % 360);
+                compassVals.headPosY = ((head + 270) % 360);
+            }
+            headVal = read_euler_heading(BNO055_ADDRESS_B) / 16;
         }
         else if (c == 'h')
         {
@@ -759,12 +846,7 @@ int main(void)
         }
         else if (c == '1' || button_getButton() == 1)
         {
-            unsigned char rickrollNumNotes = 11;
-            unsigned char rickrollNotes[11]    = {53, 55, 48, 55, 57, 60, 58, 57, 53, 55, 48};
-            unsigned char rickrollDuration[11] = {48, 64, 16, 48, 48, 8,  8,  8,  48, 64, 64};
-            int RICK_ROLL = 0;
-            oi_loadSong(RICK_ROLL, rickrollNumNotes, rickrollNotes, rickrollDuration);
-            oi_play_song(RICK_ROLL);
+            rickroll();
         }
 
         else if (c == 't')
@@ -814,6 +896,25 @@ int main(void)
 //                uart_sendStr(buffer);
                 if(scanData.averageAdc < 20){
                     avoidObject(sensor_data , &moveScanData, &scanData);
+                    if (!turnStatus)
+                        {
+                            face_direction(directionGlobal, NEGATIVE_Y, sensor_data);
+                        }
+                        else if (turnStatus == 1)
+                        {
+
+                            face_direction(directionGlobal, POSITIVE_X, sensor_data);
+                        }
+                        else if (turnStatus == 2)
+                        {
+
+                            face_direction(directionGlobal, POSITIVE_Y, sensor_data);
+                        }
+                        else if (turnStatus == 3)
+                        {
+                            face_direction(directionGlobal, NEGATIVE_X, sensor_data);
+                        }
+                    re_center_tape(sensor_data, &moveScanData);
                     sprintf(buffer, "Broke recursion %d <---------------------------\r\n", directionGlobal);
                     uart_sendStr(buffer);
 
@@ -852,6 +953,7 @@ int main(void)
 
                         lcd_printf("finished perimeter!\r\n");
                         sprintf(buffer, "finished perimeter!\r\n");
+                        rickroll();
                         uart_sendStr(buffer);
                         oi_free(sensor_data);
                         while (1);

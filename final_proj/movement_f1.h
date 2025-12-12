@@ -23,7 +23,12 @@ typedef struct {
     int status; // object encountered (e.g. BOUNDARY, BUMP, CLIFF, OBJECT, etc.)
 } move_scan_t;
 
-
+typedef struct {
+    int headPosX;
+    int headPosY;
+    int headNegX;
+    int headNegY;
+} compassVals;
 
 void move_forward(oi_t *sensor_data, move_scan_t *moveData, int cm);
 
@@ -45,3 +50,5 @@ void calibrate_turn(oi_t *sensor_data);
 
 void re_center_tape(oi_t *sensor_data, move_scan_t *moveScanData);
 void move_forward_slow(oi_t *sensor_data, move_scan_t *moveScanData, int cm);
+
+void angle_correct(oi_t *sensor_data, move_scan_t *moveScanData, int directionGlobal, compassVals *compassVals);
