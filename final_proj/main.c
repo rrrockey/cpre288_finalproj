@@ -437,7 +437,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
             scan_cone(38, 142, moveScanData, scanData);
             phase = 1;
         }
-level
+
         // Main avoidance loop, holds the case that avoid object will run until white tape is seen
         int continueLoop = 1;
         while (continueLoop && moveScanData->status != BOUNDARY) {
@@ -624,7 +624,8 @@ level
                 phase = 6;
             }
 
-            // Check if need special handling based on direction
+            // Check if need special handling based on direction, makes sure that we arent going back to white tape when we are on the side of an object
+            // this makes sure we dont get stuck in the same loop
             if (phase == 6) {
                 if (fabs(directionGlobal - (turnStatus - 1)) == 2) {
                     rotate_degrees(directionGlobal, -90, sensor_data, moveScanData, compassVals);
@@ -646,6 +647,11 @@ level
             }
         }
 
+
+        /*
+        * Here we are making sure that we return to the tape that we started at if there are not objects infront of you. 
+        * Ths whole section makes sure we turn back to the direction we were facing before we entered avoid object, while also making sure we are back on the edge so we dont miss squares. 
+        */
         // Phase 10: After completing avoidance, look for tape
         if (phase == 10 || moveScanData->status == BOUNDARY) {
             // Face appropriate direction based on turnStatus
@@ -706,7 +712,7 @@ level
                 }
             }
 
-            // If we found boundary, recenter and update compass
+            // If we found boundary, recenter and update compass. We implemented updating the compass because we were having issue with it being slightly off, and trying to do full auto this was our largest problem
             if (moveScanData->status == BOUNDARY) {
                 re_center_tape(sensor_data, moveScanData, compassVals, directionGlobal);
                 head = read_euler_heading(BNO055_ADDRESS_B) / 16;
@@ -760,6 +766,10 @@ level
 int main(void)
 {
 
+    /**
+     * all inits and variable inits for things that we use in most methods. 
+     */
+
     timer_init();
     lcd_init();
     uart_init();
@@ -794,8 +804,13 @@ int main(void)
 
     moveScanData.distanceTraveled = 0;
     moveScanData.status = CLEAR;
+
     head = 0;
     int stop = 0;
+
+    /**
+     * while loop that waits for input to select a manual movement or start the autonomous sequence. Also has all of the calibration sequences attached to keybinds.
+     */
     while (1)
     {
 
@@ -838,11 +853,12 @@ int main(void)
             while (b != 1) {
                 head =  read_euler_heading(BNO055_ADDRESS_B) / 16;
                 b = button_getButton();
-                lcd_printf("value %d \n 1 to start rotation", head); // divide by 16 and correlate to a value that is eithe NSWE I believe
+                lcd_printf("value %d \n 1 to start rotation", head); \
                 timer_waitMillis(50);
 
             }
 
+            //Where we set our compassVals for our IMU
 
             head =  read_euler_heading(BNO055_ADDRESS_B) / 16;
             compassVals.headPosX = head;
@@ -890,7 +906,10 @@ int main(void)
 
         else if (c == 'm')
         {
-
+            /**
+             * Where we start our auto sequence. This is mostly based on our avoid object function.
+             * Our main is fairly simple because most things are handled in other functions
+             */
             while (!stop)
             {
                 oi_update(sensor_data);
@@ -898,21 +917,25 @@ int main(void)
                 // scan before movement
                 scan_cone(38, 142, &moveScanData, &scanData);
 
-
+                //default drive dist
                 int driveDist = fmin(30, scanData.averageAdc);
                 move_scan(sensor_data, &moveScanData, driveDist, 38, 142, &compassVals, directionGlobal);
 
+
+                //set a status to use
                 int status = moveScanData.status;
                 double distanceChange = moveScanData.distanceTraveled;
                 update_distance(distanceChange, directionGlobal);
+
+                //if move scan breaks to when it sees something in front of it. rescan to see the size of the object
                 if(OBJECT == status){
 
                     scan_cone(38, 142, &moveScanData, &scanData);
                 }
 
+                
+                // make sure we are close to the object and then call avoidObject
                 if(scanData.averageAdc < 20){
-
-
 
                     avoidObject(sensor_data, &moveScanData, &scanData, &compassVals);
                     sprintf(buffer, "Broke recursion %d <---------------------------\r\n", directionGlobal);
@@ -921,6 +944,10 @@ int main(void)
                 }
                 else if (status == BOUNDARY)
                 {
+
+                    /**
+                     * Recenter our bot so that it doesnt drift, and when doing this reset the head values so that we make sure we still have good direction.
+                     */
                     re_center_tape(sensor_data, &moveScanData, &compassVals, directionGlobal);
                     head = read_euler_heading(BNO055_ADDRESS_B) / 16;
                     if (directionGlobal == POSITIVE_X)
@@ -929,7 +956,6 @@ int main(void)
                         compassVals.headNegY = ((head + 90) % 360);
                         compassVals.headNegX = ((head + 180) % 360);
                         compassVals.headPosY = ((head + 270) % 360);
-
                     }
                     if (directionGlobal == POSITIVE_Y)
                     {
@@ -953,6 +979,9 @@ int main(void)
                         compassVals.headPosX = ((head + 270) % 360);
 
                     }
+
+                    // Keeps the direction we are supposed to be heading so that we make sure we are in the right direction. This is used to tell which step of our boundary we are at. 
+
                     if (!turnStatus) // first row
                     {
 
