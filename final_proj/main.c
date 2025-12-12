@@ -156,6 +156,7 @@ void face_direction(int startDir, int finalDir /*0,1,2,3*/, oi_t *sensor_data, m
 /**
  * keeps distance updated properly based on the direction we are facing. Making sure our total distance is handled properly.
  */
+
 void update_distance(double distance, int direction ){
     char buffer[200];
     if(direction == 0){
@@ -181,6 +182,7 @@ void update_distance(double distance, int direction ){
  * scan_cone is how we decide and calculate if there is or isnt an object.
  * this is partly decided in move scan where we set a status that we check here.
  */
+
 void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanData){
     #define cybotLength 40
     int adcTickAmnt = 0;
@@ -393,6 +395,13 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
 }
 
 
+ /**
+  * This is our main portion of the code. This method determines how the bot will decide based on its phase, how it will handle the next direction or motion. 
+  * Most of this is self explanitory but the basis of our logic, since we are only worried about the edge of our test field, is handled with the white tape. 
+  * Our "base case" checks if the bot has gotten back to the white tape that is to the right of the direction that it is supposed to be progressing.
+  * This means that, the end state should always be the same so we only have to handle what happens inbetween that. 
+  */
+
 
 int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanData, compassVals *compassVals)
 {
@@ -422,18 +431,18 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
         oldStatus = currentState.oldStatus;
         int phase = currentState.phase;
 
-        // If starting fresh at this level, do initial rotation and scan
+        // If starting fresh at this level, do initial rotation and scan. Do this every time to double check for objects
         if (phase == 0) {
             rotate_degrees(directionGlobal, 90, sensor_data, moveScanData, compassVals);
             scan_cone(38, 142, moveScanData, scanData);
             phase = 1;
         }
-
-        // Main avoidance loop for this recursion level
+level
+        // Main avoidance loop, holds the case that avoid object will run until white tape is seen
         int continueLoop = 1;
         while (continueLoop && moveScanData->status != BOUNDARY) {
 
-            // Handle cliff/bump encountered before movement
+            // Handle cliff/bump encountered as first movement status
             if (phase == 1 && (moveScanData->status == CLIFF || moveScanData->status == BUMPLEFT
                     || moveScanData->status == BUMPRIGHT))
             {
@@ -443,12 +452,12 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
                 moveScanData->status = CLEAR;
                 update_distance(-6, directionGlobal);
 
-                // Push current state back to resume after "recursive" call
+                // Push current state back to resume after call
                 stateStack[stackPointer].oldStatus = oldStatus;
                 stateStack[stackPointer].phase = 1;
                 stackPointer++;
 
-                // Push new "recursive" call state
+                // Push new call state
                 stateStack[stackPointer].oldStatus = moveScanData->status;
                 stateStack[stackPointer].phase = 0;
                 stackPointer++;
@@ -462,12 +471,12 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
             // Check if object too close before first move
             if (phase == 1 && (scanData->averageAdc < 25 || scanData->averageAdc <= scanData->driveDist/2))
             {
-                // Push current state back
+                // Push current state back - this is the same between every case because we need to make sure that theres nothing during the avoid object
                 stateStack[stackPointer].oldStatus = oldStatus;
                 stateStack[stackPointer].phase = 1;
                 stackPointer++;
 
-                // Push new "recursive" call
+                // Push new call - this happens if there is something between the two
                 stateStack[stackPointer].oldStatus = moveScanData->status;
                 stateStack[stackPointer].phase = 0;
                 stackPointer++;
@@ -476,7 +485,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
                 continue;
             }
 
-            // First move - sideways
+            // First move - first horizontal move. Just far enough to get past the object 
             if (phase == 1) {
                 move_forward(sensor_data, moveScanData, scanData->driveDistHorizontal, compassVals, directionGlobal);
                 update_distance(moveScanData->distanceTraveled, directionGlobal);
@@ -485,7 +494,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
                     phase = 10;  // Jump to end
                     continue;
                 }
-                else if (moveScanData->status == CLIFF || moveScanData->status == BUMPLEFT || moveScanData->status == BUMPRIGHT) {
+                else if (moveScanData->status == CLIFF || moveScanData->status == BUMPLEFT || moveScanData->status == BUMPRIGHT) { /* makes sure theres nothing infront of it, happens between every movement*/
                     sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
                     uart_sendStr(buffer);
                     move_backward(sensor_data, compassVals, 6, directionGlobal);
@@ -507,7 +516,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
                 phase = 2;
             }
 
-            // First rotation and scan
+            // First rotation and scan -scan for the "vertical" portion, getting past the object requires a longer distance that we called vertical.
             if (phase == 2) {
                 rotate_degrees(directionGlobal, -90, sensor_data, moveScanData, compassVals);
                 scan_cone(38, 142, moveScanData, scanData);
@@ -528,7 +537,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
                 phase = 3;
             }
 
-            // Second move - straight
+            // Second move - This is our "vertical" move. 
             if (phase == 3) {
                 move_scan(sensor_data, moveScanData, scanData->driveDistVertical, 37, 142, compassVals, directionGlobal);
                 update_distance(moveScanData->distanceTraveled, directionGlobal);
@@ -559,7 +568,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
                 phase = 4;
             }
 
-            // Second rotation and scan
+            // Second rotation and scan - at this point should be past the object and the bot is checking to make sure it is good to keep driving. 
             if (phase == 4) {
                 rotate_degrees(directionGlobal, -90, sensor_data, moveScanData, compassVals);
                 scan_cone(38, 142, moveScanData, scanData);
@@ -580,7 +589,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
                 phase = 5;
             }
 
-            // Third move - straight again
+            // Third move - straight again move that is after it makes sure its clear.
             if (phase == 5) {
                 if (oldStatus == CLIFF) {
                     scanData->driveDistHorizontal += 5;
