@@ -222,8 +222,7 @@ void scan_cone(int low, int high,  move_scan_t *moveScanData, scan_info *scanDat
 
         estimation = 4150000 * pow(adcVal, -1.64);
         if(estimation < 25){
-            sprintf(buffer, "Object hit at: %.2f, at angle %d \r\n", estimation,i);
- //                   uart_sendStr(buffer);
+
             adcTickAmnt++;
             averageADC += estimation;
 
@@ -446,8 +445,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
             if (phase == 1 && (moveScanData->status == CLIFF || moveScanData->status == BUMPLEFT
                     || moveScanData->status == BUMPRIGHT))
             {
-                sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
-                uart_sendStr(buffer);
+
                 move_backward(sensor_data, compassVals, 6, directionGlobal);
                 moveScanData->status = CLEAR;
                 update_distance(-6, directionGlobal);
@@ -495,8 +493,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
                     continue;
                 }
                 else if (moveScanData->status == CLIFF || moveScanData->status == BUMPLEFT || moveScanData->status == BUMPRIGHT) { /* makes sure theres nothing infront of it, happens between every movement*/
-                    sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
-                    uart_sendStr(buffer);
+
                     move_backward(sensor_data, compassVals, 6, directionGlobal);
                     moveScanData->status = CLEAR;
                     update_distance(-6, directionGlobal);
@@ -550,8 +547,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
                     move_backward(sensor_data, compassVals, 6, directionGlobal);
                     moveScanData->status = CLEAR;
                     update_distance(-6, directionGlobal);
-                    sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
-                    uart_sendStr(buffer);
+
 
                     stateStack[stackPointer].oldStatus = oldStatus;
                     stateStack[stackPointer].phase = 3;
@@ -606,8 +602,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
                     move_backward(sensor_data, compassVals, 6, directionGlobal);
                     moveScanData->status = CLEAR;
                     update_distance(-6, directionGlobal);
-                    sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
-                    uart_sendStr(buffer);
+
 
                     stateStack[stackPointer].oldStatus = oldStatus;
                     stateStack[stackPointer].phase = 5;
@@ -694,8 +689,7 @@ int avoidObject(oi_t *sensor_data, move_scan_t *moveScanData, scan_info *scanDat
                         move_backward(sensor_data, compassVals, 6, directionGlobal);
                         moveScanData->status = CLEAR;
                         update_distance(-6, directionGlobal);
-                        sprintf(buffer, "cliff sensor hit: status %d/r/n", moveScanData->status);
-                        uart_sendStr(buffer);
+
 
                         stateStack[stackPointer].oldStatus = oldStatus;
                         stateStack[stackPointer].phase = 11;

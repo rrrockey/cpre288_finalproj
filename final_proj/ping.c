@@ -45,7 +45,7 @@ void ping_init(void) {
     TIMER3_CFG_R |= 0x4;
     TIMER3_TBMR_R = 0b000000000111;
     TIMER3_TBILR_R = 0xFFFF;
-    TIMER3_TBPR_R = 0xFF; //?
+    TIMER3_TBPR_R = 0xFF; 
     TIMER3_ICR_R |= 0b10000000000;
     TIMER3_IMR_R = 0b10000000000;
 
@@ -58,7 +58,7 @@ void ping_init(void) {
 }
 
 void send_pulse(void) {
-    // Generate short high pulse (~5 µs)
+    // Generate short high pulse (~5 ï¿½s)
 
     TIMER3_CTL_R &= ~(0x100);  // maybe move
 
@@ -67,7 +67,7 @@ void send_pulse(void) {
     GPIO_PORTB_DIR_R |= 0x08;
     GPIO_PORTB_DATA_R &= ~(0x08);
 
-        // Generate short HIGH pulse (5 µs per datasheet)
+        // Generate short HIGH pulse (5 ï¿½s per datasheet)
         GPIO_PORTB_DATA_R |= 0x08;        // HIGH
         timer_waitMicros(5);
         GPIO_PORTB_DATA_R &= ~0x08;

@@ -26,7 +26,7 @@ void servo_init(void) {
     TIMER1_TBILR_R = PERIOD_TICKS & 0xFFFF;         // Lower 16 bits
     TIMER1_TBPR_R = (PERIOD_TICKS >> 16) & 0xFF;    // Upper 8 bits
 
-    // 6. Set initial match value for 0° position (1ms pulse)
+    // 6. Set initial match value for 0 position (1ms pulse)
     uint32_t match = PERIOD_TICKS - SERVO_0DEG_PULSE;
     TIMER1_TBMATCHR_R = match & 0xFFFF;
     TIMER1_TBPMR_R = (match >> 16) & 0xFF;
@@ -67,21 +67,21 @@ void servo_calibrate(void) {
     while (1) {
         button = button_getButton();
 
-        if (button == 1) {          // SW1: move 1°
+        if (button == 1) {          // SW1: move 1ï¿½
             if (clockwise) angle += 1;
             else angle -= 1;
-        } else if (button == 2) {   // SW2: move 5°
+        } else if (button == 2) {   // SW2: move 5ï¿½
             if (clockwise) angle += 5;
             else angle -= 5;
         } else if (button == 3) {   // SW3: toggle direction
             clockwise = !clockwise;
             timer_waitMillis(300);
-        } else if (button == 4) {   // SW4: go to 0° or 180°
+        } else if (button == 4) {   // SW4: go to 0ï¿½ or 180ï¿½
             if (clockwise) angle = 0;
             else angle = 180;
         }
 
-        // Clamp within 0–180°
+        // Clamp within 0ï¿½180ï¿½
 //        if (angle < 0) angle = 0;
 //        if (angle > 180) angle = 180;
 
