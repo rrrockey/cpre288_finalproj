@@ -8,6 +8,7 @@
 #include "IMU.h"
 
 
+//Making sure that we have calibration values for sensors. 
 
 #define WHITETAPE 2600
 #define WHITETAPE_RIGHT 2450
@@ -21,6 +22,8 @@ volatile double TURN_CORRECTION = 1;
 volatile double TURN_CORRECTION_180 = 1;
 char buffer[100];
 
+//basic move forward function that has all the dections that we need inside of it. 
+
 void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassVals *compassVals, int directionGlobal)
 {
     moveScanData->status = CLEAR;
@@ -33,7 +36,9 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassV
     {
 
         oi_update(sensor_data);
+        
 
+        //bump dection split between left and right to change handling
         if (sensor_data->bumpLeft || sensor_data->bumpRight)
         {
             oi_setWheels(0, 0);
@@ -47,6 +52,8 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassV
 
             break;
         }
+
+        //white tape sensors for if we are hitting a boundary head on
         if (sensor_data->cliffFrontLeftSignal > WHITETAPE
                 || sensor_data->cliffFrontRightSignal > WHITETAPE)
         {
@@ -55,6 +62,10 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassV
             moveScanData->status = BOUNDARY;
             break;
         }
+
+
+
+        //white time on the rightside for when our bot is drifting
         if(sensor_data->cliffRightSignal > WHITETAPE_RIGHT && (!(sensor_data->cliffFrontLeftSignal > WHITETAPE
                 || sensor_data->cliffFrontRightSignal > WHITETAPE))){
             oi_setWheels(0,0);
@@ -70,6 +81,8 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassV
             break;
         }
 
+
+        //cliff sensors for if we are driving into a hole
         if (sensor_data->cliffFrontLeftSignal < BLACKTAPE
                   || sensor_data->cliffFrontRightSignal < BLACKTAPE
                   || sensor_data->cliffLeftSignal < BLACKTAPE
@@ -90,6 +103,8 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassV
     }
 
     oi_setWheels(0, 0);
+
+    //straight correct called to make sure our turns match our IMU value
     straight_correct(sensor_data, compassVals, angleTurned, directionGlobal);
     timer_waitMillis(300);
 
@@ -104,7 +119,9 @@ void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassV
 
 
 
-
+/**
+ * Same as move forward but the ping and IR are detecting obejcts as well. This takes a low angle and high angle so that you can customize how much is being seen. 
+ */
 void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_angle, float high_angle, compassVals *compassVals, int directionGlobal)
 {
     moveScanData->status = CLEAR;
@@ -112,14 +129,18 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
     double distanceTraveled = 0;
     double angleTurned = 0;
 
+
+
+    // Slower motion because there should be enough time to get through the scan
     oi_setWheels( ((int16_t)(75*RIGHTWHEELSCALAR)),  ((int16_t)(75*LEFTWHEELSCALAR)));
     float current_angle = low_angle;
     int IR_val = 0;
     double estimation = 0;
+
     while (distanceTraveled < cm * MM_IN_CM)
     {
         oi_update(sensor_data);
-
+        //bump detect
         if (sensor_data->bumpLeft || sensor_data->bumpRight)
         {
             oi_setWheels(0, 0);
@@ -133,6 +154,8 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
 
             break;
         }
+
+        //front white tape
         if (sensor_data->cliffFrontLeftSignal > WHITETAPE
                 || sensor_data->cliffFrontRightSignal > WHITETAPE)
         {
@@ -141,6 +164,9 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
             moveScanData->status = BOUNDARY;
             break;
         }
+
+
+        // right tape sensor
         if(sensor_data->cliffRightSignal > WHITETAPE_RIGHT && (!(sensor_data->cliffFrontLeftSignal > WHITETAPE
                         || sensor_data->cliffFrontRightSignal > WHITETAPE))){
                     oi_setWheels(0,0);
@@ -155,6 +181,7 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
                     break;
                 }
 
+        // black tape sensor
         if (sensor_data->cliffFrontLeftSignal < BLACKTAPE
                 || sensor_data->cliffFrontRightSignal < BLACKTAPE
                 || sensor_data->cliffLeftSignal < BLACKTAPE
@@ -165,22 +192,31 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
             moveScanData->status = CLIFF;
             break;
         }
+
+        // adding to the angle to move the servor
         current_angle+= 5;
         if(current_angle > high_angle) current_angle = low_angle;
         servo_move(current_angle);
+
         IR_val = adc_read();
         estimation = 4150000 * pow(IR_val, -1.64);
+
+        //breakout if IR is less than 20
         if(estimation < 20){
             oi_setWheels(0, 0);
             distanceTraveled += sensor_data->distance;
             moveScanData->status = OBJECT;
             break;
         }
+
         distanceTraveled += sensor_data->distance;
 
         angleTurned += sensor_data->angle;
     }
+
     oi_setWheels(0, 0);
+
+    //straight correct to make sure that the it is matching IMU direction
     straight_correct(sensor_data, compassVals, angleTurned, directionGlobal);
 
     timer_waitMillis(300);
@@ -195,6 +231,7 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
 
 }
 
+//simple move backward function
 double move_backward(oi_t *sensor_data, compassVals *compassVals, int cm, int directionGlobal) {
     double distanceTraveled = 0;
     double angleTurned = 0;
@@ -208,7 +245,7 @@ double move_backward(oi_t *sensor_data, compassVals *compassVals, int cm, int di
 
 
     oi_setWheels(0, 0);
-//    straight_correct(sensor_data, compassVals, angleTurned, directionGlobal);
+    straight_correct(sensor_data, compassVals, angleTurned, directionGlobal);
     timer_waitMillis(300);
     sprintf(buffer, "angle turned in move backward: %.2f\r\n", angleTurned);
     uart_sendStr(buffer);
@@ -219,6 +256,8 @@ double move_backward(oi_t *sensor_data, compassVals *compassVals, int cm, int di
     return -distanceTraveled; // Return positive value of distance moved
 }
 
+
+//moving backward without straight correcting because it was causing issue with the direction
 double move_backward_no_straight_correct(oi_t *sensor_data, compassVals *compassVals, int cm, int directionGlobal) {
     double distanceTraveled = 0;
     double angleTurned = 0;
@@ -232,7 +271,6 @@ double move_backward_no_straight_correct(oi_t *sensor_data, compassVals *compass
 
 
     oi_setWheels(0, 0);
-//    straight_correct(sensor_data, compassVals, angleTurned, directionGlobal);
     timer_waitMillis(300);
     sprintf(buffer, "angle turned in move backward: %.2f\r\n", angleTurned);
     uart_sendStr(buffer);
@@ -243,7 +281,7 @@ double move_backward_no_straight_correct(oi_t *sensor_data, compassVals *compass
     return -distanceTraveled; // Return positive value of distance moved
 }
 
-
+//simple turn clockwise function
 void turn_clockwise(oi_t *sensor_data, int degrees) {
 
 
@@ -267,6 +305,8 @@ void turn_clockwise(oi_t *sensor_data, int degrees) {
     timer_waitMillis(300);
 }
 
+
+//simple turn_counterclockwise function
 void turn_counterclockwise(oi_t *sensor_data, int degrees) {
     if (degrees == 180) {
         degrees *= TURN_CORRECTION_180;
@@ -287,6 +327,8 @@ void turn_counterclockwise(oi_t *sensor_data, int degrees) {
     timer_waitMillis(300);
 }
 
+
+//used to calibrate the wheels so that turns are more accurate
 void calibrate_turn(oi_t *sensor_data) {
     sprintf(buffer, "Enter TURN_CORRECTION values. Example: 1.10\r\n");
     uart_sendStr(buffer);
@@ -306,14 +348,15 @@ void calibrate_turn(oi_t *sensor_data) {
     }
 }
 
+// rechecks tape to make sure the bot is centered at any occasion it can be.
+// Checks that both front white sensors are above a threshold to make sure that they are both on tape and in theory centered
 void re_center_tape(oi_t *sensor_data, move_scan_t *moveScanData, compassVals *compassVals, int directionGlobal) {
 
     move_backward_no_straight_correct(sensor_data, compassVals, 2, directionGlobal);
     move_forward_slow(sensor_data, moveScanData, 50);
 
     oi_update(sensor_data);
-    sprintf(buffer, "in\nFrontLeft %d\n FrontRight %d\n",  sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
-    lcd_printf(buffer);
+
     if (sensor_data->cliffFrontLeftSignal > WHITETAPE) {
 
         while (1) {
@@ -345,13 +388,15 @@ void re_center_tape(oi_t *sensor_data, move_scan_t *moveScanData, compassVals *c
             turn_clockwise(sensor_data, 2);
             move_forward_slow(sensor_data, moveScanData, 50);
 
-//            sprintf(buffer, "FrontLeft %d\n FrontRight %d\n",  sensor_data->cliffFrontLeftSignal, sensor_data->cliffFrontRightSignal);
-//            lcd_printf(buffer);
         }
 
     }
 }
 
+
+/**
+ * This is the function that takes in the angle shifted by OI and corrects the direction we are facing with the IMU value. We were having trouble relying only on IMU so this was our compromise
+ */
 void straight_correct(oi_t *sensor_data, compassVals *compassVals, double angleTurned, int directionGlobal) {
     timer_waitMillis(1000);
 
@@ -360,8 +405,9 @@ void straight_correct(oi_t *sensor_data, compassVals *compassVals, double angleT
     lcd_printf("straight_correct");
 
     int currentAngle =  read_euler_heading(BNO055_ADDRESS_B) / 16;
-    sprintf(buffer, "currently in straight correct with a directionGlobal of %d, and a current angle of %d\r\n",directionGlobal, currentAngle);
-        uart_sendStr(buffer);
+
+
+    // calc the angle that we are supposed to be facing
     int goingTo = (currentAngle + (int) angleTurned) % 360;
     if (goingTo < 0){
         goingTo += 360;
@@ -375,7 +421,11 @@ void straight_correct(oi_t *sensor_data, compassVals *compassVals, double angleT
             upper += 360;
         }
 
+
+    // determining the direction that is most effecient to reach the angle. logic for CW and CCW is the same other than the situation that they are called
     if (angleTurned > 0){ //cw
+
+        //Wheel speed is set slow so we dont miss thevalue 
         oi_setWheels(-15, 15);
 
             while (1)
@@ -387,9 +437,6 @@ void straight_correct(oi_t *sensor_data, compassVals *compassVals, double angleT
                     if(currentAngle >= lower || currentAngle <= upper) break;
                 }
 
-
-
-                lcd_printf("head: %d", currentAngle);
                 oi_update(sensor_data);
                 currentAngle = read_euler_heading(BNO055_ADDRESS_B) / 16;
 
@@ -414,6 +461,7 @@ void straight_correct(oi_t *sensor_data, compassVals *compassVals, double angleT
     }
 
 
+    //This is making sure that after we correct we redo the heading value because we were having drifting issue still if we didnt do this. 
 
     currentAngle = read_euler_heading(BNO055_ADDRESS_B) / 16;
     if (directionGlobal == POSITIVE_X) {
@@ -447,15 +495,19 @@ void straight_correct(oi_t *sensor_data, compassVals *compassVals, double angleT
 
 }
 
+
+/**
+ * angle correct is the same as straight correct other than the logic for turning is fully based on the IMU. We found the 90 degree turns were the most accurate when only relying on the IMU
+ */
 void angle_correct(oi_t *sensor_data, move_scan_t *moveScanData, int directionGlobal, compassVals *compassVals) {
 
     timer_waitMillis(1000);
-    lcd_printf("angle correct");
 
     int currentDirection = read_euler_heading(BNO055_ADDRESS_B) / 16;
-    sprintf(buffer, "currently in angle correct with a directionGlobal of %d, and a current angle of %d\r\n",directionGlobal, currentDirection);
-    uart_sendStr(buffer);
+
     int intendedDirection;
+
+    //sets the intended IMU direction based on direction we are facing. 
     if (directionGlobal == 0) {
         intendedDirection = compassVals->headPosX;
     }
@@ -469,8 +521,10 @@ void angle_correct(oi_t *sensor_data, move_scan_t *moveScanData, int directionGl
         intendedDirection = compassVals->headNegY;
     }
 
+
+    // if the direction and intended direction are the same the loop should break because it means the bot is at the correct angle
     while(currentDirection != intendedDirection){
-        lcd_printf("head: %d", read_euler_heading(BNO055_ADDRESS_B) / 16);
+       
         int delta = currentDirection - intendedDirection;
         if ((delta > 0 && delta < 180) || delta < -180)
         {  //counter clockwise
@@ -487,6 +541,8 @@ void angle_correct(oi_t *sensor_data, move_scan_t *moveScanData, int directionGl
 
     oi_setWheels(0, 0);
     timer_waitMillis(300);
+
+    // We put this here because we were already correcting the IMU after every move forward so we decided we should also do it after a turn. 
     currentDirection = read_euler_heading(BNO055_ADDRESS_B) / 16;
         if (directionGlobal == POSITIVE_X) {
             compassVals->headPosX = currentDirection;
@@ -518,6 +574,11 @@ void angle_correct(oi_t *sensor_data, move_scan_t *moveScanData, int directionGl
 
 }
 
+
+/**
+ * move_forward_slow is only used in the white tape correct scenario but it was implemented to avoid having to rewrite all the moves in main.
+ * it also has no straight correction because we use it in white tape correction
+ */
 void move_forward_slow(oi_t *sensor_data, move_scan_t *moveScanData, int cm) {
     moveScanData->status = CLEAR;
         moveScanData->distanceTraveled = 0;
@@ -566,7 +627,6 @@ void move_forward_slow(oi_t *sensor_data, move_scan_t *moveScanData, int cm) {
             angleTurned += sensor_data->distance;
         }
         oi_setWheels(0, 0);
-//        straight_correct(sensor_data, compassVals, angleTurned, directionGlobal);
 
         timer_waitMillis(300);
 
