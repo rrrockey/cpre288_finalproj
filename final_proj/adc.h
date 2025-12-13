@@ -8,8 +8,10 @@
 #ifndef ADC_H_
 #define ADC_H_
 
+// initialize ADC
 void adc_init(void);
 
+// read raw ADC value of IR sensor
 int adc_read(void);
 
 

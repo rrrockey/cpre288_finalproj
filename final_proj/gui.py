@@ -68,7 +68,9 @@ class CyBotGUI:
         tk.Button(ctrl, text="v", command=lambda: self.send('s'), bg="green", width=5).grid(row=1, column=1)
         tk.Button(ctrl, text=">", command=lambda: self.send('d'), bg="green", width=5).grid(row=1, column=2)
         tk.Button(ctrl, text="Scan", command=lambda: self.send('h'), bg="cyan", width=15).grid(row=2, column=0, columnspan=3, pady=5)
-        tk.Button(ctrl, text="Calibrate", command=lambda: self.send('g'), bg="#ff00b4", width=15).grid(row=3, column=0, columnspan=3, pady=5)
+
+        tk.Button(ctrl, text="Calibrate", command=lambda: self.send('g'), bg="gray", width=15).grid(row=3, column=0, columnspan=3, pady=5)
+
         tk.Label(left, text="Autonomous").pack(pady=(10,0))
         tk.Button(left, text="Start Auto (m)", command=lambda: self.send('m'), bg="orange", width=20).pack()
         tk.Button(left, text="Rickroll", command=lambda: self.send('1'), bg="#ff69b4", width=20).pack(pady=5)
