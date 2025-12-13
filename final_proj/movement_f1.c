@@ -22,8 +22,7 @@ volatile double TURN_CORRECTION = 1;
 volatile double TURN_CORRECTION_180 = 1;
 char buffer[100];
 
-//basic move forward function that has all the dections that we need inside of it. 
-
+// basic move forward function that has all the dections that we need inside of it. 
 void move_forward(oi_t *sensor_data, move_scan_t *moveScanData, int cm, compassVals *compassVals, int directionGlobal)
 {
     moveScanData->status = CLEAR;
@@ -231,7 +230,7 @@ void move_scan(oi_t *sensor_data, move_scan_t *moveScanData, int cm, float low_a
 
 }
 
-//simple move backward function
+// simple move backward function
 double move_backward(oi_t *sensor_data, compassVals *compassVals, int cm, int directionGlobal) {
     double distanceTraveled = 0;
     double angleTurned = 0;
@@ -281,7 +280,7 @@ double move_backward_no_straight_correct(oi_t *sensor_data, compassVals *compass
     return -distanceTraveled; // Return positive value of distance moved
 }
 
-//simple turn clockwise function
+// simple turn clockwise function
 void turn_clockwise(oi_t *sensor_data, int degrees) {
 
 
@@ -306,7 +305,7 @@ void turn_clockwise(oi_t *sensor_data, int degrees) {
 }
 
 
-//simple turn_counterclockwise function
+// simple turn_counterclockwise function
 void turn_counterclockwise(oi_t *sensor_data, int degrees) {
     if (degrees == 180) {
         degrees *= TURN_CORRECTION_180;
@@ -328,7 +327,7 @@ void turn_counterclockwise(oi_t *sensor_data, int degrees) {
 }
 
 
-//used to calibrate the wheels so that turns are more accurate
+// used to calibrate the wheels so that turns are more accurate
 void calibrate_turn(oi_t *sensor_data) {
     sprintf(buffer, "Enter TURN_CORRECTION values. Example: 1.10\r\n");
     uart_sendStr(buffer);

@@ -1,6 +1,12 @@
 #include "servo.h"
 
-// Initializes Timer1B to generate PWM on PB5
+/*
+ * servo.c
+ *
+ *      Author: rockey
+ */
+
+// Initialize Timer1B to generate PWM on PB5
 void servo_init(void) {
     // 1. Enable clocks for GPIOB and Timer1
     SYSCTL_RCGCGPIO_R |= 0x02;    // Port B
@@ -35,7 +41,7 @@ void servo_init(void) {
     TIMER1_CTL_R |= 0x0100;
 }
 
-// Moves servo to specified pulse width (in timer ticks)
+// Move servo to specified pulse width (in timer ticks)
 void servo_move_ticks(uint32_t pulse_width_ticks) {
 //    if (pulse_width_ticks > SERVO_180DEG_PULSE) pulse_width_ticks = SERVO_180DEG_PULSE;
 //    if (pulse_width_ticks < SERVO_0DEG_PULSE) pulse_width_ticks = SERVO_0DEG_PULSE;
@@ -56,6 +62,7 @@ void servo_move(float angle) {
     TIMER1_TBPMR_R = (match >> 16) & 0xFF;
 }
 
+// Start calibration sequence to get pulse width
 void servo_calibrate(void) {
     float angle = 90.0;      // start centered
     bool clockwise = true;   // start rotating CW

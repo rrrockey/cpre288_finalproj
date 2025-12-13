@@ -34,13 +34,10 @@ void uart_init(int baud)
     UART1_CTL_R &= ~0x1;      // disable UART1 (page 918)
     UART1_IBRD_R = ibrd;        // write integer portion of BRD to IBRD
     UART1_FBRD_R = (int)fbrd;   // write fractional portion of BRD to FBRD
-//    UART1_IBRD_R = 8;        // write integer portion of BRD to IBRD
-//    UART1_FBRD_R = 44;   // write fractional portion of BRD to FBRD
 
     UART1_LCRH_R |= 0b01100000;        // write serial communication parameters (page 916) * 8bit and no parity
     UART1_CC_R   = 0x0;          // use system clock as clock source (page 939)
     UART1_CTL_R |= 0x0301;        // enable UART1 and RXE and TXE
-
 }
 
 
@@ -60,7 +57,6 @@ void uart_sendChar(char data)
 }
 
 char uart_receive(void){
-  //TODO
     char data = 0;
     while (UART1_FR_R & UART_FR_RXFE) {
         if (UART1_FR_R == 0) {
@@ -85,18 +81,7 @@ char uart_receive_interrupt(void){
     return data;
 }
 
-//char uart_receive(void)
-//{
-//    char data;
-//
-//    // wait until there is data to read
-//    while (UART1_FR_R & UART_FR_RXFE); // UART Receieve FIFO Empty
-//
-//    data = (char)(UART1_DR_R & 0xFF);
-//
-//    return data;
-//
-//}
+
 
 void uart_sendStr(const char *data)
 {

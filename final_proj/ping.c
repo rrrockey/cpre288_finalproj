@@ -57,6 +57,7 @@ void ping_init(void) {
     state = DONE;
 }
 
+// send short pulse to be listened back for
 void send_pulse(void) {
     // Generate short high pulse (~5 �s)
 
@@ -74,6 +75,7 @@ void send_pulse(void) {
         GPIO_PORTB_DIR_R &= ~(0x08);
 }
 
+// read time difference in echo
 unsigned int ping_read(void) {
     //uart_init();
     //char buffer[200];
@@ -110,6 +112,7 @@ unsigned int ping_read(void) {
 
 }
 
+// set state of the listener based on echo
 void TIMER3B_Handler(){
     TIMER3_ICR_R |= 0b010000000000;
         if(state == LOW){

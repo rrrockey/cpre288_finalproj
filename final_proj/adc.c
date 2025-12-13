@@ -8,6 +8,7 @@
 #include "adc.h"
 
 
+// initialize ADC
 void adc_init(void) {
     // define gpio ports
     SYSCTL_RCGCGPIO_R |= 0b00000010;      // enable clock GPIOB (page 340)
@@ -33,6 +34,7 @@ void adc_init(void) {
 
 }
 
+// read raw ADC value of IR sensor
 int adc_read(void) {
     timer_waitMillis(10);
     unsigned int result;
